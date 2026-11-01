@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10251f">
+<meta name="description" content="Controle pessoal de ações, FIIs, Tesouro, aportes e dividendos.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>Minha Carteira</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1512;--panel:#14231e;--panel2:#1b3028;--line:#294238;--text:#edf6f0;--muted:#9db2a6;--green:#45c58a;--red:#ff7777}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px 17px 16px;background:linear-gradient(135deg,#153a2b,#10251f);border-bottom:1px solid var(--line)}
+h1{font-size:22px;margin:0 0 4px}header p,.muted{color:var(--muted);font-size:12px;margin:0}
+main{max-width:980px;margin:auto;padding:14px;display:grid;gap:13px}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:13px}
+.k{font-size:11px;color:var(--muted)}.v{font-size:21px;font-weight:750;margin-top:4px;overflow-wrap:anywhere}
+nav{display:flex;gap:7px;overflow:auto;padding-bottom:2px}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 12px;font-weight:650;cursor:pointer;white-space:nowrap}button.active,.primary{background:var(--green);border-color:var(--green);color:#092016}
+h2{font-size:16px;margin:0 0 12px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.field{display:grid;gap:5px;font-size:12px;color:var(--muted)}input,select{width:100%;min-width:0;background:#0c1914;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}
+.full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}td,th{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}.positive{color:var(--green)}.negative{color:var(--red)}section[hidden]{display:none}
+footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}
+@media(min-width:700px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.v{font-size:24px}}
+</style>
+</head>
+<body>
+<header><h1>Minha Carteira</h1><p>Controle de ações, FIIs, Tesouro, aportes e rendimentos</p></header>
+<main>
+<div class="cards">
+ <div class="card"><div class="k">Patrimônio atual</div><div class="v" id="total">R$ 0,00</div></div>
+ <div class="card"><div class="k">Total investido</div><div class="v" id="invested">R$ 0,00</div></div>
+ <div class="card"><div class="k">Resultado</div><div class="v" id="result">R$ 0,00</div><div class="k" id="pct">0,00%</div></div>
+ <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
+</div>
+<nav>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button>
+</nav>
+<section id="assets" class="panel">
+<h2>Adicionar / atualizar ativo</h2>
+<div class="formgrid">
+<label class="field">Tipo<select id="kind"><option>Ação</option><option>FII</option><option>Tesouro</option><option>Outro</option></select></label>
+<label class="field">Ticker ou nome<input id="ticker" placeholder="Ex.: BBSE3"></label>
+<label class="field">Quantidade<input id="qty" type="number" min="0" step="0.0001"></label>
+<label class="field">Preço médio (R$)<input id="avg" type="number" min="0" step="0.01"></label>
+<label class="field">Cotação atual (R$)<input id="price" type="number" min="0" step="0.01"></label>
+<label class="field">Dividendo anual por unidade (R$)<input id="dividend" type="number" min="0" step="0.0001"></label>
+</div><div class="actions"><button class="primary" id="saveAsset">Salvar ativo</button><button id="cancelEdit">Cancelar edição</button></div>
+<p class="muted" style="margin-top:10px">Preencha cotações e dividendos manualmente. A estimativa não representa promessa de pagamento.</p>
+<h2 style="margin-top:20px">Minha carteira</h2>
+<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRows"></tbody></table></div><p class="muted" id="emptyAssets">Nenhum ativo cadastrado.</p>
+</section>
+<section id="income" class="panel" hidden>
+<h2>Registrar rendimento recebido</h2><div class="formgrid">
+<label class="field">Ativo<input id="incomeTicker" placeholder="Ex.: BBSE3"></label><label class="field">Data<input id="incomeDate" type="date"></label><label class="field">Valor recebido (R$)<input id="incomeValue" type="number" min="0" step="0.01"></label>
+</div><div class="actions"><button class="primary" id="saveIncome">Registrar</button></div>
+<h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
+</section>
+<section id="contrib" class="panel" hidden>
+<h2>Registrar aporte</h2><div class="formgrid">
+<label class="field">Data<input id="contribDate" type="date"></label><label class="field">Destino<input id="contribTarget" placeholder="Ex.: Ações / BBSE3"></label><label class="field">Valor (R$)<input id="contribValue" type="number" min="0" step="0.01"></label>
+</div><div class="actions"><button class="primary" id="saveContrib">Registrar aporte</button></div>
+<h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Destino</th><th>Valor</th><th></th></tr></thead><tbody id="contribRows"></tbody></table></div><p id="contribTotal" class="muted"></p>
+</section>
+<section id="projection" class="panel" hidden>
+<h2>Simulador de crescimento</h2><div class="formgrid">
+<label class="field">Aporte mensal (R$)<input id="monthlyInput" type="number" value="2500" min="0"></label><label class="field">Prazo (anos)<input id="yearsInput" type="number" value="10" min="1" max="50"></label><label class="field">Rentabilidade anual estimada (%)<input id="rateInput" type="number" value="8" min="0" max="50" step=".1"></label>
+</div><div class="cards" style="margin-top:12px"><div class="card"><div class="k">Saldo projetado</div><div class="v" id="projected">R$ 0,00</div></div><div class="card"><div class="k">Total aportado</div><div class="v" id="projectedContrib">R$ 0,00</div></div><div class="card"><div class="k">Rendimento simulado</div><div class="v" id="projectedGain">R$ 0,00</div></div></div><p class="muted" style="margin-top:10px">Simulação ilustrativa, sem impostos, taxas, inflação ou oscilação de preços. Não é garantia de retorno.</p>
+</section>
+<div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
+<footer>Os dados ficam neste aparelho/navegador. Não há conexão com corretora, cotações automáticas ou sincronização em nuvem. Faça backups periódicos. Rentabilidade e dividendos podem variar.</footer>
+</main>
+<script>
+(()=> {
+const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
+let db={assets:[],income:[],contrib:[]},editing=-1;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db=x}catch(e){}
+const persist=()=>localStorage.setItem(key,JSON.stringify(db));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const date=new Date().toISOString().slice(0,10);$('incomeDate').value=date;$('contribDate').value=date;
+function render(){
+let total=0,cost=0,annual=0;
+$('assetRows').innerHTML=db.assets.map((a,i)=>{let val=a.qty*a.price,gain=val-a.qty*a.avg;total+=val;cost+=a.qty*a.avg;annual+=a.qty*a.dividend;return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt(a.qty*a.dividend)}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
+$('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost:0).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
+$('incomeRows').innerHTML=db.income.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${i}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido: '+fmt(db.income.reduce((s,x)=>s+x.value,0));
+$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+x.value,0));project();
+}
+function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');$('saveAsset').textContent='Salvar ativo'}
+$('saveAsset').onclick=()=>{let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=+$('price').value,dividend=+$('dividend').value;if(!ticker||[qty,avg,price,dividend].some(x=>!Number.isFinite(x)||x<0)){alert('Informe o ativo e confira os valores.');return}let a={ticker,kind,qty,avg,price,dividend};if(editing>=0)db.assets[editing]=a;else{let i=db.assets.findIndex(x=>x.ticker===ticker);if(i>=0)db.assets[i]=a;else db.assets.push(a)}persist();clearAsset();render()};
+$('cancelEdit').onclick=clearAsset;
+$('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confirm('Excluir ativo?')){db.assets.splice(+t.dataset.del,1);persist();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})}};
+$('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
+$('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
+document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','income','contrib','projection'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+function project(){let m=Math.max(0,+$('monthlyInput').value||0),y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),r=Math.max(0,+$('rateInput').value||0)/1200,b=0;for(let i=0;i<y*12;i++)b=b*(1+r)+m;let c=m*y*12;$('projected').textContent=fmt(b);$('projectedContrib').textContent=fmt(c);$('projectedGain').textContent=fmt(b-c)}
+['monthlyInput','yearsInput','rateInput'].forEach(id=>$(id).oninput=project);
+$('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db=x;persist();render();alert('Backup importado.')}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+render();
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+})();
+</script>
+</body></html>

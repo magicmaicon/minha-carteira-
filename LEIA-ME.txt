@@ -1,0 +1,18 @@
+MINHA CARTEIRA - PACOTE PWA ANDROID
+
+Este pacote é um aplicativo web instalável (PWA), não um APK.
+
+COMO INSTALAR NO ANDROID
+1. Publique os arquivos desta pasta em um endereço HTTPS (por exemplo, GitHub Pages).
+2. Abra o endereço no Google Chrome do Android.
+3. Toque no menu ⋮ e escolha "Instalar app" ou "Adicionar à tela inicial".
+4. Confirme. O ícone Minha Carteira aparecerá na tela inicial.
+
+DADOS E LIMITAÇÕES
+- Os dados ficam armazenados localmente no navegador/aparelho.
+- Use a opção Exportar backup dentro do app para guardar seus dados.
+- Não há conexão com corretora, cotações automáticas ou sincronização em nuvem.
+- Não há custo de loja de aplicativos; a hospedagem pode usar um plano gratuito.
+- Para funcionar como PWA instalável, o site precisa estar em HTTPS.
+
+Para publicar em GitHub Pages: crie um repositório público, envie todos os arquivos desta pasta para a raiz e ative Settings > Pages > Deploy from a branch > main > /(root). Aguarde a URL HTTPS fornecida pelo GitHub.
