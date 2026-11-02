@@ -403,7 +403,9 @@ const key=[t.date,t.kind,String(t.ticker||'').toUpperCase(),t.broker].join('|');
 if(!dayGroups.has(key))dayGroups.set(key,[]);dayGroups.get(key).push(t);
 }
 for(const group of dayGroups.values()){
-const broker=group[0].broker,queues={buy:[],sell:[]},acc=new Map();
+const broker=group[0].broker;
+if(!broker||group.some(t=>!t.time)){for(const t of group)processedByIndex.set(t._index,{...t,gain:null,matchedQty:0,matchedSaleValue:0,positionAfter:(balances.get(t.kind+'|'+String(t.ticker||'').toUpperCase())||{}).qty||0,dayTradeStatus:!broker?'Pendente: corretora não informada':'Pendente: horário do negócio não informado'});continue}
+const queues={buy:[],sell:[]},acc=new Map();
 for(const t of group)acc.set(t._index,{matchedQty:0,gain:0,matchedSaleValue:0});
 for(const t of group){
 let remaining=Number(t.qty)||0;const opposite=t.side==='buy'?'sell':'buy';
