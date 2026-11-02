@@ -144,7 +144,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </section>
 <section id="trades" class="panel" hidden>
 <h2>Controle de operações e imposto estimado</h2>
-<p class="muted">O saldo inicial foi copiado dos ativos cadastrados na carteira nesta primeira ativação. Este controle é independente da aba Ativos: lançar uma operação aqui não altera automaticamente o cadastro principal. Registre daqui em diante compras e vendas para acompanhar quantidades, preço médio e resultado realizado. Confira sempre com as notas de corretagem.</p>
+<p class="muted">Este controle acompanha compras, vendas, preço médio e resultados. As operações comuns atualizam a posição de longo prazo em Ativos. Day trade é apurado separadamente e não altera essa posição. Confira os lançamentos com as notas de corretagem; os cálculos são estimativas auxiliares.</p>
 <div class="cards">
  <div class="card"><div class="k">Vendas neste mês</div><div class="v" id="tradeMonthSales">R$ 0,00</div></div>
  <div class="card"><div class="k">Resultado realizado no mês</div><div class="v" id="tradeMonthGain">R$ 0,00</div></div>
@@ -157,19 +157,20 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <label class="field">Ticker<input id="tradeTicker" maxlength="20" placeholder="Ex.: BBSE3"></label>
  <label class="field">Tipo de ativo<select id="tradeKind"><option>Ação</option><option>FII</option></select></label>
  <label class="field">Operação<select id="tradeSide"><option value="buy">Compra</option><option value="sell">Venda</option></select></label>
+ <label class="field">Modalidade<select id="tradeMode"><option value="common">Operação comum</option><option value="daytrade">Day trade</option></select></label>
  <label class="field">Quantidade<input id="tradeQty" type="number" min="0.0001" step="0.0001"></label>
  <label class="field">Preço por unidade (R$)<input id="tradePrice" type="number" min="0.0001" step="0.0001"></label>
  <label class="field">Taxas e custos (R$)<input id="tradeFees" type="number" min="0" step="0.01" value="0"></label>
 </div>
 <div class="actions"><button class="primary" id="saveTrade">Registrar operação</button></div>
-<p class="muted" id="tradeFormStatus" style="margin-top:8px" aria-live="polite">Nesta primeira versão, o controle calcula operações comuns. O módulo de day trade será tratado separadamente para não misturar regras.</p>
+<p class="muted" id="tradeFormStatus" style="margin-top:8px" aria-live="polite">Para day trade, registre compra e venda do mesmo ticker, na mesma data e na mesma corretora. O resultado só será calculado quando as quantidades de compra e venda do dia estiverem equilibradas. Lançamentos incompletos ficam sinalizados como pendentes.</p>
 <h2 style="margin-top:22px">Posição acompanhada pelo controle</h2>
 <div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Quantidade</th><th>Preço médio</th><th>Custo estimado</th></tr></thead><tbody id="tradePositions"></tbody></table></div>
 <h2 style="margin-top:22px">Resumo mensal de imposto estimado</h2>
-<div class="tablewrap"><table><thead><tr><th>Mês</th><th>Vendas ações</th><th>Resultado ações</th><th>Vendas FII</th><th>Resultado FII</th><th>IR estimado</th><th>IRRF estimado</th><th>Saldo estimado</th></tr></thead><tbody id="tradeTaxRows"></tbody></table></div>
-<p class="muted" style="margin-top:8px">Estimativa simplificada para operações comuns: ações podem ter isenção quando o total de vendas de ações no mês não ultrapassa R$ 20.000; FII não utiliza essa isenção. O cálculo não inclui prejuízos anteriores, operações de day trade, ajustes especiais ou outras situações fiscais. Não substitui a apuração oficial.</p>
+<div class="tablewrap"><table><thead><tr><th>Mês</th><th>Vendas ações comuns</th><th>Resultado ações</th><th>Vendas FII</th><th>Resultado FII</th><th>Vendas day trade</th><th>Resultado day trade</th><th>IR comum</th><th>IRRF comum</th><th>IR day trade</th><th>IRRF day trade</th><th>Total estimado</th></tr></thead><tbody id="tradeTaxRows"></tbody></table></div>
+<p class="muted" style="margin-top:8px">Resumo auxiliar: operações comuns e day trade são separados. Para day trade, o resultado só é apurado quando compras e vendas do mesmo ticker, data e corretora estiverem com quantidades iguais. O controle ainda não compensa prejuízos de meses anteriores nem contempla todas as situações fiscais, ativos e ajustes especiais. Confira a apuração oficial e as notas de corretagem.</p>
 <h2 style="margin-top:22px">Histórico por operação</h2>
-<div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Operação</th><th>Quantidade</th><th>Preço</th><th>Taxas</th><th>Resultado da venda</th><th></th></tr></thead><tbody id="tradeRows"></tbody></table></div>
+<div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Operação</th><th>Modalidade</th><th>Quantidade</th><th>Preço</th><th>Taxas</th><th>Resultado da venda</th><th></th></tr></thead><tbody id="tradeRows"></tbody></table></div>
 <p class="muted" id="tradeEmpty">Nenhuma operação registrada ainda.</p>
 </section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
@@ -365,9 +366,10 @@ if(remove){if(confirm('Excluir esta meta?')){db.goals=db.goals.filter(g=>g.id!==
 function calculateTradeLedger(){
 const balances=new Map();
 for(const a of (db.taxOpeningBalances||[])){const k=a.kind+'|'+String(a.ticker||'').toUpperCase();balances.set(k,{ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})}
-const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a._index-b._index);
-const processed=[];
-for(const t of rows){
+const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i,mode:t.mode==='daytrade'?'daytrade':'common'})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a._index-b._index);
+const processedByIndex=new Map();
+const commonRows=rows.filter(t=>t.mode!=='daytrade'||t.side==='adjust');
+for(const t of commonRows){
 const key=t.kind+'|'+String(t.ticker||'').toUpperCase();
 let p=balances.get(key)||{ticker:String(t.ticker||'').toUpperCase(),kind:t.kind,qty:0,avg:0};
 const qty=Number(t.qty)||0,price=Number(t.price)||0,fees=Number(t.fees)||0;
@@ -377,12 +379,29 @@ const oldCost=p.qty*p.avg,newCost=qty*price+fees;
 p.avg=(p.qty+qty)>0?(oldCost+newCost)/(p.qty+qty):0;p.qty+=qty;
 }else if(t.side==='sell'){
 const proceeds=qty*price-fees;gain=proceeds-qty*p.avg;p.qty-=qty;if(Math.abs(p.qty)<0.0000001)p.qty=0;
-}else if(t.side==='adjust'){
-p.qty=qty;p.avg=qty>0?price:0;
+}else if(t.side==='adjust'){p.qty=qty;p.avg=qty>0?price:0}
+balances.set(key,p);processedByIndex.set(t._index,{...t,gain,positionAfter:p.qty});
 }
-balances.set(key,p);processed.push({...t,gain,positionAfter:p.qty});
+const dayGroups=new Map();
+for(const t of rows.filter(x=>x.mode==='daytrade'&&x.side!=='adjust')){
+const key=[t.date,t.kind,String(t.ticker||'').toUpperCase()].join('|');
+if(!dayGroups.has(key))dayGroups.set(key,[]);
+dayGroups.get(key).push(t);
 }
-return {allBalances:[...balances.values()],balances:[...balances.values()].filter(p=>p.qty>0.0000001).sort((a,b)=>a.ticker.localeCompare(b.ticker)),rows:processed};
+for(const group of dayGroups.values()){
+const buys=group.filter(t=>t.side==='buy'),sells=group.filter(t=>t.side==='sell');
+const buyQty=buys.reduce((v,t)=>v+(Number(t.qty)||0),0),sellQty=sells.reduce((v,t)=>v+(Number(t.qty)||0),0);
+const matched=Math.abs(buyQty-sellQty)<0.0000001&&buyQty>0;
+const buyCost=buys.reduce((v,t)=>v+(Number(t.qty)||0)*(Number(t.price)||0)+(Number(t.fees)||0),0);
+const sellValue=sells.reduce((v,t)=>v+(Number(t.qty)||0)*(Number(t.price)||0)-(Number(t.fees)||0),0);
+const net=matched?sellValue-buyCost:null;
+for(const t of group){
+const gain=matched&&t.side==='sell'?net*((Number(t.qty)||0)/sellQty):null;
+const current=balances.get(t.kind+'|'+String(t.ticker||'').toUpperCase());
+processedByIndex.set(t._index,{...t,gain,positionAfter:current?current.qty:0,dayTradeStatus:matched?'Fechado':'Pendente: compras e vendas do dia precisam ter quantidades iguais'});
+}
+}
+return {allBalances:[...balances.values()],balances:[...balances.values()].filter(p=>p.qty>0.0000001).sort((a,b)=>a.ticker.localeCompare(b.ticker)),rows:rows.map(t=>processedByIndex.get(t._index)||({...t,gain:null,positionAfter:0}))};
 }
 function addManualAdjustment(ticker,kind,qty,avg){
 const cleanTicker=String(ticker||'').trim().toUpperCase();if(!cleanTicker)return;
@@ -423,34 +442,45 @@ $('tradeMonthTax').textContent=fmt(monthTax?monthTax.due:0);
 $('tradeOpeningDate').textContent=db.taxOpeningDate?String(db.taxOpeningDate).split('-').reverse().join('/'):'—';
 $('tradePositions').innerHTML=ledger.balances.length?ledger.balances.map(p=>'<tr><td><b>'+esc(p.ticker)+'</b><br><span class="muted">'+esc(p.kind)+'</span></td><td>'+nfmt(p.qty)+'</td><td>'+fmt(p.avg)+'</td><td>'+fmt(p.qty*p.avg)+'</td></tr>').join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma posição acompanhada.</td></tr>';
 const taxes=calculateMonthlyTaxes(ledger.rows);
-$('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+fmt(x.stockSales)+'</td><td class="'+(x.stockGain>=0?'positive':'negative')+'">'+fmt(x.stockGain)+'</td><td>'+fmt(x.fiiSales)+'</td><td class="'+(x.fiiGain>=0?'positive':'negative')+'">'+fmt(x.fiiGain)+'</td><td>'+fmt(x.tax)+'</td><td>'+fmt(x.irrf)+'</td><td><b>'+fmt(x.due)+'</b></td></tr>').join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">O resumo aparecerá após a primeira venda.</td></tr>';
-$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>':'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
+$('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+fmt(x.stockSales)+'</td><td>'+fmt(x.stockGain)+'</td><td>'+fmt(x.fiiSales)+'</td><td>'+fmt(x.fiiGain)+'</td><td>'+fmt(x.dayTradeSales)+'</td><td>'+fmt(x.dayTradeGain)+'</td><td>'+fmt(x.commonTax)+'</td><td>'+fmt(x.commonIrrf)+'</td><td>'+fmt(x.dayTradeTax)+'</td><td>'+fmt(x.dayTradeIrrf)+'</td><td><b>'+fmt(x.due)+'</b></td></tr>').join(''):'<tr><td colspan="12" style="text-align:center;color:var(--muted)">O resumo aparecerá após a primeira venda.</td></tr>';
+const pending=ledger.rows.filter(t=>t.mode==='daytrade'&&t.dayTradeStatus&&t.dayTradeStatus!=='Fechado');
+$('tradeFormStatus').textContent=pending.length?pending.length+' lançamento(s) de day trade pendente(s): confira se compra e venda do mesmo ticker, data e corretora foram registradas com quantidades iguais.':'Para day trade, registre compra e venda do mesmo ticker, na mesma data e na mesma corretora. O resultado só é calculado quando as quantidades de compra e venda do dia estiverem equilibradas.';
+$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+(t.mode==='daytrade'?'Day trade':'Comum')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?(t.gain===null?'<span class="negative">Pendente</span>':'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>'):'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
 $('tradeEmpty').hidden=ledger.rows.length>0;
 }
 function calculateMonthlyTaxes(rows){
 const months=new Map();
+const getMonth=m=>{if(!months.has(m))months.set(m,{month:m,stockSales:0,stockGain:0,fiiSales:0,fiiGain:0,dayTradeSales:0,dayTradeGain:0,pendingDayTrade:0});return months.get(m)};
 for(const t of rows.filter(x=>x.side==='sell')){
 const m=String(t.date).slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))continue;
-if(!months.has(m))months.set(m,{month:m,stockSales:0,stockGain:0,fiiSales:0,fiiGain:0});
-const x=months.get(m),sale=Number(t.qty)*Number(t.price),g=Number(t.gain)||0;
-if(t.kind==='Ação'){x.stockSales+=sale;x.stockGain+=g}else{x.fiiSales+=sale;x.fiiGain+=g}
+const x=getMonth(m),sale=(Number(t.qty)||0)*(Number(t.price)||0);
+if(t.mode==='daytrade'){
+x.dayTradeSales+=sale;
+if(t.gain===null||t.gain===undefined)x.pendingDayTrade++;
+else x.dayTradeGain+=Number(t.gain)||0;
+}else if(t.kind==='Ação'){x.stockSales+=sale;x.stockGain+=Number(t.gain)||0}
+else{x.fiiSales+=sale;x.fiiGain+=Number(t.gain)||0}
 }
 return [...months.values()].sort((a,b)=>a.month.localeCompare(b.month)).map(x=>{
 const stockTax=x.stockSales>20000?Math.max(0,x.stockGain)*0.15:0;
 const fiiTax=Math.max(0,x.fiiGain)*0.20;
-const tax=stockTax+fiiTax,irrfGross=(x.stockSales+x.fiiSales)*0.00005,irrf=irrfGross>1?irrfGross:0;
-return {...x,tax,irrf,due:Math.max(0,tax-irrf)};
+const dayTradeTax=Math.max(0,x.dayTradeGain)*0.20;
+const commonTax=stockTax+fiiTax;
+const commonIrrfGross=(x.stockSales+x.fiiSales)*0.00005,commonIrrf=commonIrrfGross>1?commonIrrfGross:0;
+const dayTradeIrrf=Math.max(0,x.dayTradeGain)*0.01;
+const due=Math.max(0,commonTax-commonIrrf)+Math.max(0,dayTradeTax-dayTradeIrrf);
+return {...x,commonTax,commonIrrf,dayTradeTax,dayTradeIrrf,tax:commonTax+dayTradeTax,irrf:commonIrrf+dayTradeIrrf,due};
 });
 }
 $('tradeDate').value=localDate();
 $('saveTrade').onclick=()=>{
-const date=$('tradeDate').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
+const date=$('tradeDate').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,mode=$('tradeMode').value,qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
 if(!date||!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0){alert('Confira data, ticker, quantidade, preço e taxas.');return}
 if(db.taxOpeningDate&&date<db.taxOpeningDate){alert('A data deve ser igual ou posterior ao saldo inicial ('+db.taxOpeningDate.split('-').reverse().join('/')+').');return}
-const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,ticker,kind,side,qty,price,fees};
+const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,ticker,kind,side,mode,qty,price,fees};
 db.trades.push(trade);
 const check=calculateTradeLedger();
-const invalid=check.rows.find(x=>x.side==='sell'&&x.positionAfter< -0.0000001);
+const invalid=check.rows.find(x=>x.side==='sell'&&x.mode!=='daytrade'&&x.positionAfter< -0.0000001);
 if(invalid){db.trades.pop();alert('A venda ultrapassa a quantidade disponível no controle para '+ticker+'. Confira o saldo inicial e as compras registradas.');return}
 persist();syncAssetsFromTradeLedger();persist();$('tradeTicker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';render();if(isQuotedKind(kind))refreshQuotes(ticker);
 };
