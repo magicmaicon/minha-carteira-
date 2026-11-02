@@ -1,5 +1,5 @@
 
-const CACHE = 'minha-carteira-v6';
+const CACHE = 'minha-carteira-v7';
 
 const FILES = [
   './',
