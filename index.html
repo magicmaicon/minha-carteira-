@@ -42,10 +42,11 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}
 <label class="field">Ticker ou nome<input id="ticker" placeholder="Ex.: BBSE3"></label>
 <label class="field">Quantidade<input id="qty" type="number" min="0" step="0.0001"></label>
 <label class="field">Preço médio (R$)<input id="avg" type="number" min="0" step="0.01"></label>
-<label class="field">Cotação atual (R$)<input id="price" type="number" min="0" step="0.01"></label>
+<label class="field">Cotação atual (R$)<input id="price" type="number" min="0" step="0.01" placeholder="Automática para ações e FIIs"></label>
 <label class="field">Dividendo anual por unidade (R$)<input id="dividend" type="number" min="0" step="0.0001"></label>
-</div><div class="actions"><button class="primary" id="saveAsset">Salvar ativo</button><button id="cancelEdit">Cancelar edição</button></div>
-<p class="muted" style="margin-top:10px">Preencha cotações e dividendos manualmente. A estimativa não representa promessa de pagamento.</p>
+</div>
+<div class="actions"><button class="primary" id="saveAsset">Salvar ativo</button><button id="cancelEdit">Cancelar edição</button><button id="refreshQuotes">Atualizar cotações</button></div>
+<p class="muted" id="quoteStatus" style="margin-top:10px" aria-live="polite">Ações e FIIs terão cotação consultada automaticamente ao salvar e ao abrir o aplicativo. Tesouro e outros ativos permanecem manuais.</p>
 <h2 style="margin-top:20px">Minha carteira</h2>
 <div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRows"></tbody></table></div><p class="muted" id="emptyAssets">Nenhum ativo cadastrado.</p>
 </section>
@@ -64,29 +65,74 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}
 <section id="projection" class="panel" hidden>
 <h2>Simulador de crescimento</h2><div class="formgrid">
 <label class="field">Aporte mensal (R$)<input id="monthlyInput" type="number" value="2500" min="0"></label><label class="field">Prazo (anos)<input id="yearsInput" type="number" value="10" min="1" max="50"></label><label class="field">Rentabilidade anual estimada (%)<input id="rateInput" type="number" value="8" min="0" max="50" step=".1"></label>
-</div><div class="cards" style="margin-top:12px"><div class="card"><div class="k">Saldo projetado</div><div class="v" id="projected">R$ 0,00</div></div><div class="card"><div class="k">Total aportado</div><div class="v" id="projectedContrib">R$ 0,00</div></div><div class="card"><div class="k">Rendimento simulado</div><div class="v" id="projectedGain">R$ 0,00</div></div></div><p class="muted" style="margin-top:10px">Simulação ilustrativa, sem impostos, taxas, inflação ou oscilação de preços. Não é garantia de retorno.</p>
+</div><div class="cards" style="margin-top:12px"><div class="card"><div class="k">Saldo projetado</div><div class="v" id="projected">R$ 0,00</div></div><div class="card"><div class="k">Total aportado</div><div class="v" id="projectedContrib">R$ 0,00</div></div><div class="card"><div class="k">Rendimento simulado</div><div class="v" id="projectedGain">R$ 0,00</div></div></div><p class="muted" style="margin-top:10px">Simulação ilustrativa, sem impostos, taxas, inflação ou oscilação de preços.
+Não é garantia de retorno.</p>
 </section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
-<footer>Os dados ficam neste aparelho/navegador. Não há conexão com corretora, cotações automáticas ou sincronização em nuvem. Faça backups periódicos. Rentabilidade e dividendos podem variar.</footer>
+<footer>Os dados ficam neste aparelho/navegador. As cotações de ações e FIIs são consultadas pela BRAPI por meio de uma conexão segura. Não há conexão com corretora nem sincronização em nuvem. Faça backups periódicos. Preços, rentabilidade e dividendos podem variar.</footer>
 </main>
 <script>
-(()=> {
+(()=>{
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
-let db={assets:[],income:[],contrib:[]},editing=-1;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db=x}catch(e){}
+const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
+let db={assets:[],income:[],contrib:[]},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[]}}catch(e){}
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=new Date().toISOString().slice(0,10);$('incomeDate').value=date;$('contribDate').value=date;
 function render(){
 let total=0,cost=0,annual=0;
-$('assetRows').innerHTML=db.assets.map((a,i)=>{let val=a.qty*a.price,gain=val-a.qty*a.avg;total+=val;cost+=a.qty*a.avg;annual+=a.qty*a.dividend;return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt(a.qty*a.dividend)}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
-$('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost ? (100*(total-cost)/cost).toFixed(2) : '0,00')+'%';('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-$('incomeRows').innerHTML=db.income.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${i}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido: '+fmt(db.income.reduce((s,x)=>s+x.value,0));
-$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+x.value,0));project();
+$('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
+$('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
+$('incomeRows').innerHTML=db.income.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${i}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
+$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));project();
 }
 function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');$('saveAsset').textContent='Salvar ativo'}
-$('saveAsset').onclick=()=>{let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=+$('price').value,dividend=+$('dividend').value;if(!ticker||[qty,avg,price,dividend].some(x=>!Number.isFinite(x)||x<0)){alert('Informe o ativo e confira os valores.');return}let a={ticker,kind,qty,avg,price,dividend};if(editing>=0)db.assets[editing]=a;else{let i=db.assets.findIndex(x=>x.ticker===ticker);if(i>=0)db.assets[i]=a;else db.assets.push(a)}persist();clearAsset();render()};
+function isQuotedKind(kind){return kind==='Ação'||kind==='FII'}
+async function refreshQuotes(onlyTicker=null){
+if(quoteBusy){$('quoteStatus').textContent='Já existe uma atualização de cotações em andamento.';return}
+let targets=db.assets.filter(a=>isQuotedKind(a.kind)&&(!onlyTicker||a.ticker===onlyTicker));
+if(!targets.length){$('quoteStatus').textContent=onlyTicker?'Ativo salvo. Não há cotação automática para esse tipo de ativo.':'Nenhuma ação ou FII cadastrado para atualizar.';return}
+quoteBusy=true;$('refreshQuotes').disabled=true;$('quoteStatus').textContent=`Consultando ${targets.length} ativo(s)...`;
+let updated=0,failed=[];
+try{
+const groups=[...new Set(targets.map(a=>a.kind))];
+for(const kind of groups){
+const list=targets.filter(a=>a.kind===kind);
+for(let i=0;i<list.length;i+=20){
+const chunk=list.slice(i,i+20),symbols=chunk.map(a=>a.ticker).join(','),type=kind==='FII'?'fii':'stock';
+try{
+const url=QUOTE_API+'?symbols='+encodeURIComponent(symbols)+'&type='+type;
+const response=await fetch(url,{method:'GET',cache:'no-store'});
+if(!response.ok)throw new Error('HTTP '+response.status);
+const payload=await response.json();
+const results=Array.isArray(payload.results)?payload.results:[];
+for(const item of results){
+const symbol=String(item.symbol||'').toUpperCase(),price=Number(item.data?.regularMarketPrice);
+if(!symbol||!Number.isFinite(price)||price<=0)continue;
+const asset=db.assets.find(a=>a.ticker===symbol&&a.kind===kind);
+if(asset){asset.price=price;updated++}
+}
+const found=new Set(results.map(x=>String(x.symbol||'').toUpperCase()));
+for(const asset of chunk)if(!found.has(asset.ticker))failed.push(asset.ticker);
+}catch(err){chunk.forEach(a=>failed.push(a.ticker))}
+}
+}
+if(updated>0){persist();render()}
+const stamp=new Date().toLocaleString('pt-BR');
+$('quoteStatus').textContent=`Atualização concluída: ${updated} cotação(ões) atualizada(s) em ${stamp}.`+(failed.length?' Não localizados/indisponíveis: '+[...new Set(failed)].join(', ')+'.':'');
+}catch(err){$('quoteStatus').textContent='Não foi possível atualizar as cotações. Confira sua conexão e tente novamente.'}
+finally{quoteBusy=false;$('refreshQuotes').disabled=false}
+}
+$('saveAsset').onclick=()=>{
+let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?0:+$('price').value,dividend=$('dividend').value.trim()===''?0:+$('dividend').value;
+if(!ticker||[qty,avg,price,dividend].some(x=>!Number.isFinite(x)||x<0)){alert('Informe o ativo e confira os valores.');return}
+let a={ticker,kind,qty,avg,price,dividend};if(editing>=0)db.assets[editing]=a;else{let i=db.assets.findIndex(x=>x.ticker===ticker&&x.kind===kind);if(i>=0)db.assets[i]=a;else db.assets.push(a)}
+persist();clearAsset();render();
+if(isQuotedKind(kind))refreshQuotes(ticker);else $('quoteStatus').textContent='Ativo salvo. Para Tesouro e outros ativos, informe a cotação manualmente.';
+};
 $('cancelEdit').onclick=clearAsset;
+$('refreshQuotes').onclick=()=>refreshQuotes();
 $('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confirm('Excluir ativo?')){db.assets.splice(+t.dataset.del,1);persist();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})}};
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
@@ -95,9 +141,10 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.query
 function project(){let m=Math.max(0,+$('monthlyInput').value||0),y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),r=Math.max(0,+$('rateInput').value||0)/1200,b=0;for(let i=0;i<y*12;i++)b=b*(1+r)+m;let c=m*y*12;$('projected').textContent=fmt(b);$('projectedContrib').textContent=fmt(c);$('projectedGain').textContent=fmt(b-c)}
 ['monthlyInput','yearsInput','rateInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
-$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db=x;persist();render();alert('Backup importado.')}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db=x;persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 render();
-if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();
 })();
 </script>
 </body></html>
