@@ -90,10 +90,23 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Destino</th><th>Valor</th><th></th></tr></thead><tbody id="contribRows"></tbody></table></div><p id="contribTotal" class="muted"></p>
 </section>
 <section id="projection" class="panel" hidden>
-<h2>Simulador de crescimento</h2><div class="formgrid">
-<label class="field">Aporte mensal (R$)<input id="monthlyInput" type="number" value="2500" min="0"></label><label class="field">Prazo (anos)<input id="yearsInput" type="number" value="10" min="1" max="50"></label><label class="field">Rentabilidade anual estimada (%)<input id="rateInput" type="number" value="8" min="0" max="50" step=".1"></label>
-</div><div class="cards" style="margin-top:12px"><div class="card"><div class="k">Saldo projetado</div><div class="v" id="projected">R$ 0,00</div></div><div class="card"><div class="k">Total aportado</div><div class="v" id="projectedContrib">R$ 0,00</div></div><div class="card"><div class="k">Rendimento simulado</div><div class="v" id="projectedGain">R$ 0,00</div></div></div><p class="muted" style="margin-top:10px">Simulação ilustrativa, sem impostos, taxas, inflação ou oscilação de preços.
-Não é garantia de retorno.</p>
+<h2>Projeção de patrimônio e renda passiva</h2>
+<p class="muted">Simule seus aportes e veja uma estimativa de quanto a carteira poderá gerar em dividendos no futuro.</p>
+<div class="formgrid">
+<label class="field">Aporte mensal (R$)<input id="monthlyInput" type="number" value="2500" min="0" step="50"></label>
+<label class="field">Prazo (anos)<input id="yearsInput" type="number" value="10" min="1" max="50"></label>
+<label class="field">Crescimento anual estimado da carteira (%)<input id="rateInput" type="number" value="8" min="0" max="50" step=".1"></label>
+<label class="field">Dividend Yield anual estimado (%)<input id="yieldInput" type="number" value="8" min="0" max="30" step=".1"></label>
+</div>
+<div class="cards" style="margin-top:12px">
+<div class="card"><div class="k">Patrimônio projetado</div><div class="v" id="projected">R$ 0,00</div></div>
+<div class="card"><div class="k">Total aportado no período</div><div class="v" id="projectedContrib">R$ 0,00</div></div>
+<div class="card"><div class="k">Crescimento estimado</div><div class="v" id="projectedGain">R$ 0,00</div></div>
+<div class="card"><div class="k">Renda mensal futura estimada</div><div class="v" id="futureMonthlyIncome">R$ 0,00</div></div>
+<div class="card"><div class="k">Renda anual futura estimada</div><div class="v" id="futureAnnualIncome">R$ 0,00</div></div>
+<div class="card"><div class="k">Renda mensal estimada hoje</div><div class="v" id="currentMonthlyIncome">R$ 0,00</div></div>
+</div>
+<p class="muted" style="margin-top:12px">A simulação considera aportes mensais e crescimento composto da carteira. A renda futura é calculada aplicando o DY informado sobre o patrimônio projetado. Valores ilustrativos: dividendos, cotações e rentabilidade variam e não são garantidos. O crescimento anual informado deve representar a valorização total da carteira, com reinvestimento dos rendimentos.</p>
 </section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
 <footer>Os dados ficam neste aparelho/navegador. As cotações de ações e FIIs são consultadas pela BRAPI por meio de uma conexão segura. Não há conexão com corretora nem sincronização em nuvem. Faça backups periódicos. Preços, rentabilidade e dividendos podem variar.</footer>
@@ -112,7 +125,7 @@ function render(){
 let total=0,cost=0,annual=0;
 $('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-renderIncomeDashboard();
+renderIncomeDashboard();project();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
 }
@@ -222,8 +235,25 @@ $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCa
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
-function project(){let m=Math.max(0,+$('monthlyInput').value||0),y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),r=Math.max(0,+$('rateInput').value||0)/1200,b=0;for(let i=0;i<y*12;i++)b=b*(1+r)+m;let c=m*y*12;$('projected').textContent=fmt(b);$('projectedContrib').textContent=fmt(c);$('projectedGain').textContent=fmt(b-c)}
-['monthlyInput','yearsInput','rateInput'].forEach(id=>$(id).oninput=project);
+function project(){
+let m=Math.max(0,+$('monthlyInput').value||0),
+y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),
+r=Math.max(0,Math.min(50,+$('rateInput').value||0))/100,
+dy=Math.max(0,Math.min(30,+$('yieldInput').value||0))/100,
+monthlyRate=Math.pow(1+r,1/12)-1,
+b=db.assets.reduce((s,a)=>s+(Number(a.qty)||0)*(Number(a.price)||0),0);
+for(let i=0;i<y*12;i++)b=b*(1+monthlyRate)+m;
+let c=m*y*12,
+currentAnnual=db.assets.reduce((s,a)=>s+(Number(a.qty)||0)*(Number(a.dividend)||0),0),
+futureAnnual=b*dy;
+$('projected').textContent=fmt(b);
+$('projectedContrib').textContent=fmt(c);
+$('projectedGain').textContent=fmt(b-c);
+$('futureMonthlyIncome').textContent=fmt(futureAnnual/12);
+$('futureAnnualIncome').textContent=fmt(futureAnnual);
+$('currentMonthlyIncome').textContent=fmt(currentAnnual/12);
+}
+['monthlyInput','yearsInput','rateInput','yieldInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
 $('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[]};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 render();
