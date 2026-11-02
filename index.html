@@ -33,7 +33,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button><button data-tab="goals">Minhas Metas</button>
 </nav>
 <section id="assets" class="panel">
 <h2>Adicionar / atualizar ativo</h2>
@@ -110,6 +110,25 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </div>
 <p class="muted" style="margin-top:12px">A simulação considera aportes mensais e crescimento composto da carteira. A renda futura é calculada aplicando o DY informado sobre o patrimônio projetado. Valores ilustrativos: dividendos, cotações e rentabilidade variam e não são garantidos. O crescimento anual informado deve representar a valorização total da carteira, com reinvestimento dos rendimentos.</p>
 </section>
+<section id="goals" class="panel" hidden>
+<h2>Minhas Metas</h2>
+<p class="muted" style="margin-bottom:12px">Acompanhe até 3 metas ativas ao mesmo tempo. Quando concluir uma, uma vaga será liberada para cadastrar outra.</p>
+<div class="cards">
+ <div class="card"><div class="k">Metas ativas</div><div class="v" id="goalsActiveCount">0 de 3</div></div>
+ <div class="card"><div class="k">Metas concluídas</div><div class="v" id="goalsCompletedCount">0</div></div>
+</div>
+<h2 style="margin-top:20px">Cadastrar nova meta</h2>
+<div class="formgrid">
+ <label class="field">Nome da meta<input id="goalName" maxlength="60" placeholder="Ex.: Reserva de emergência"></label>
+ <label class="field">Valor desejado (R$)<input id="goalTarget" type="number" min="1" step="0.01" placeholder="Ex.: 2000"></label>
+</div>
+<div class="actions"><button class="primary" id="saveGoal">Adicionar meta</button></div>
+<p class="muted" id="goalFormStatus" style="margin-top:8px" aria-live="polite">Você pode cadastrar até 3 metas ativas.</p>
+<h2 style="margin-top:22px">Metas em andamento</h2>
+<div id="activeGoalsList"></div>
+<h2 style="margin-top:22px">Metas concluídas</h2>
+<div id="completedGoalsList"></div>
+</section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
 <footer>Os dados ficam neste aparelho/navegador. As cotações de ações e FIIs são consultadas pela BRAPI por meio de uma conexão segura. Não há conexão com corretora nem sincronização em nuvem. Faça backups periódicos. Preços, rentabilidade e dividendos podem variar.</footer>
 </main>
@@ -117,8 +136,8 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 (()=>{
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
-let db={assets:[],income:[],contrib:[],history:[]},editing=-1,quoteBusy=false;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[]}}catch(e){}
+let db={assets:[],income:[],contrib:[],history:[],goals:[]},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[]}}catch(e){}
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -127,7 +146,7 @@ function render(){
 let total=0,cost=0,annual=0;
 $('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-renderIncomeDashboard();project();
+renderIncomeDashboard();project();renderGoals();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
 }
@@ -237,7 +256,43 @@ $('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confi
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection','goals'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+function renderGoals(){
+const goals=Array.isArray(db.goals)?db.goals:[];
+const active=goals.filter(g=>g.status!=='completed');
+const completed=goals.filter(g=>g.status==='completed').slice().reverse();
+$('goalsActiveCount').textContent=active.length+' de 3';
+$('goalsCompletedCount').textContent=String(completed.length);
+$('saveGoal').disabled=active.length>=3;
+$('goalFormStatus').textContent=active.length>=3?'Você já tem 3 metas ativas. Conclua uma para liberar uma vaga.':'Você pode cadastrar mais '+(3-active.length)+' meta(s) ativa(s).';
+$('activeGoalsList').innerHTML=active.length?active.map(g=>{
+const target=Math.max(0,Number(g.target)||0),current=Math.max(0,Number(g.current)||0),pct=target?Math.min(100,100*current/target):0;
+return '<div class="card" style="margin-top:9px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><b>'+esc(g.name)+'</b><div class="muted" style="margin-top:4px">Meta: '+fmt(target)+'</div></div><b>'+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%</b></div><div style="height:9px;background:#0c1914;border-radius:10px;overflow:hidden;margin:12px 0"><div style="height:100%;width:'+pct+'%;background:var(--green);border-radius:10px"></div></div><div class="muted">Valor acumulado: '+fmt(current)+' · Faltam: '+fmt(Math.max(0,target-current))+'</div><div class="formgrid" style="margin-top:10px"><label class="field">Atualizar valor acumulado (R$)<input data-goal-current="'+esc(g.id)+'" type="number" min="0" step="0.01" value="'+current+'"></label></div><div class="actions"><button class="primary" data-goal-complete="'+esc(g.id)+'">Marcar como concluída</button><button data-goal-delete="'+esc(g.id)+'">Excluir</button></div></div>';
+}).join(''):'<div class="history-empty">Nenhuma meta ativa. Cadastre sua primeira meta acima.</div>';
+$('completedGoalsList').innerHTML=completed.length?completed.map(g=>'<div class="card" style="margin-top:9px"><b>'+esc(g.name)+'</b><div class="muted" style="margin-top:4px">Objetivo: '+fmt(g.target)+' · Concluída em: '+esc(g.completedAt||'')+'</div><div class="positive" style="margin-top:7px;font-weight:700">Meta concluída</div></div>').join(''):'<div class="history-empty">Suas metas concluídas aparecerão aqui.</div>';
+}
+$('saveGoal').onclick=()=>{
+const name=$('goalName').value.trim(),target=Number($('goalTarget').value);
+const active=db.goals.filter(g=>g.status!=='completed').length;
+if(!name||!Number.isFinite(target)||target<=0){alert('Informe o nome da meta e um valor desejado maior que zero.');return}
+if(active>=3){alert('Você já tem 3 metas ativas. Conclua uma para cadastrar outra.');return}
+db.goals.push({id:'goal-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),name,target,current:0,status:'active',createdAt:localDate()});
+persist();$('goalName').value='';$('goalTarget').value='';render();
+};
+$('goals').addEventListener('change',e=>{
+const id=e.target.dataset.goalCurrent;if(!id)return;
+const goal=db.goals.find(g=>g.id===id);if(!goal)return;
+const value=Number(e.target.value);
+if(!Number.isFinite(value)||value<0){alert('Informe um valor igual ou maior que zero.');renderGoals();return}
+goal.current=value;
+if(value>=Number(goal.target)){goal.current=Number(goal.target);goal.status='completed';goal.completedAt=localDate();alert('Parabéns! Meta concluída. Uma vaga foi liberada para uma nova meta.')}
+persist();renderGoals();
+});
+$('goals').addEventListener('click',e=>{
+const complete=e.target.dataset.goalComplete,remove=e.target.dataset.goalDelete;
+if(complete){const goal=db.goals.find(g=>g.id===complete);if(goal){goal.current=Number(goal.target)||0;goal.status='completed';goal.completedAt=localDate();persist();renderGoals()}}
+if(remove){if(confirm('Excluir esta meta?')){db.goals=db.goals.filter(g=>g.id!==remove);persist();renderGoals()}}
+});
 function project(){
 let m=Math.max(0,+$('monthlyInput').value||0),
 y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),
@@ -258,7 +313,7 @@ $('currentMonthlyIncome').textContent=fmt(currentAnnual/12);
 }
 ['monthlyInput','yearsInput','rateInput','yieldInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
-$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[]};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[]};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 render();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();else recordSnapshot();
