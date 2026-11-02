@@ -421,8 +421,9 @@ if(invalid){db.trades.pop();alert('A venda ultrapassa a quantidade disponível n
 persist();$('tradeTicker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';renderTrades();
 };
 $('tradeRows').addEventListener('click',e=>{
-const id=e.target.dataset.tradeDelete;if(!id)return;
-if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){db.trades=db.trades.filter(t=>t.id!==id);persist();renderTrades()}
+const btn=e.target.closest('button[data-trade-delete]');if(!btn)return;
+const id=btn.getAttribute('data-trade-delete');if(!id)return;
+if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){db.trades=db.trades.filter(t=>String(t.id)!==String(id));persist();renderTrades()}
 });
 function project(){
 let m=Math.max(0,+$('monthlyInput').value||0),
