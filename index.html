@@ -57,9 +57,11 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Último patrimônio registrado</div><div class="v" id="historyLatest">R$ 0,00</div></div>
  <div class="card"><div class="k">Variação desde o primeiro registro</div><div class="v" id="historyChange">R$ 0,00</div><div class="k" id="historyChangePct">0,00%</div></div>
  <div class="card"><div class="k">Registros</div><div class="v" id="historyCount">0</div></div>
+ <div class="card"><div class="k">Resultado atual</div><div class="v" id="historyResult">R$ 0,00</div><div class="k" id="historyResultPct">0,00% sobre o investido</div></div>
 </div>
-<h2 style="margin-top:20px">Gráfico do patrimônio</h2>
+<h2 style="margin-top:20px">Patrimônio x total investido</h2>
 <div class="chartbox" id="historyChart"><div class="history-empty">Seu gráfico aparecerá após o primeiro registro.</div></div>
+<div class="actions" style="margin-top:8px;gap:14px;font-size:12px;color:var(--muted)"><span><span style="display:inline-block;width:18px;height:3px;background:#45c58a;vertical-align:middle;margin-right:5px;border-radius:4px"></span>Patrimônio</span><span><span style="display:inline-block;width:18px;height:3px;background:#7aa7ff;vertical-align:middle;margin-right:5px;border-radius:4px"></span>Total investido</span></div>
 <h2 style="margin-top:20px">Histórico diário</h2>
 <div class="tablewrap"><table><thead><tr><th>Data</th><th>Patrimônio</th><th>Investido</th><th>Resultado</th></tr></thead><tbody id="historyRows"></tbody></table></div>
 <p class="muted" id="historyNote" style="margin-top:10px">Os registros são armazenados neste aparelho e incluídos no backup.</p>
@@ -121,15 +123,21 @@ $('historyChange').textContent=fmt(change);$('historyChange').className='v '+(ch
 const pct=first&&Number(first.total)!==0?100*change/Number(first.total):0;
 $('historyChangePct').textContent=pct.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
 $('historyCount').textContent=String(rows.length);
-if(rows.length<2){$('historyChart').innerHTML='<div class="history-empty">'+(rows.length===1?'Primeiro registro salvo. O gráfico ganhará forma com os próximos dias.':'Seu gráfico aparecerá após o primeiro registro.')+'</div>'}
+const currentResult=latest?Number(latest.result)||0:0,currentPct=latest?Number(latest.pct)||0:0;
+$('historyResult').textContent=fmt(currentResult);$('historyResult').className='v '+(currentResult>=0?'positive':'negative');
+$('historyResultPct').textContent=currentPct.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'% sobre o investido';
+if(rows.length<2){$('historyChart').innerHTML='<div class="history-empty">'+(rows.length===1?'Primeiro registro salvo. O comparativo ganhará forma com os próximos dias.':'Seu gráfico aparecerá após o primeiro registro.')+'</div>'}
 else{
-const values=rows.map(x=>Number(x.total)||0),min=Math.min(...values),max=Math.max(...values),span=max-min||1;
-const pts=values.map((v,i)=>`${30+i*(540/(values.length-1))},${185-((v-min)/span)*145}`).join(' ');
-const labels=`<text x="30" y="210" fill="#9db2a6" font-size="11">${rows[0].date.split('-').reverse().join('/')}</text><text x="570" y="210" text-anchor="end" fill="#9db2a6" font-size="11">${rows[rows.length-1].date.split('-').reverse().join('/')}</text>`;
-$('historyChart').innerHTML=`<svg viewBox="0 0 600 220" role="img" aria-label="Gráfico da evolução do patrimônio"><line x1="30" y1="40" x2="570" y2="40" stroke="#294238"/><line x1="30" y1="112" x2="570" y2="112" stroke="#294238"/><line x1="30" y1="185" x2="570" y2="185" stroke="#294238"/><polyline points="${pts}" fill="none" stroke="#45c58a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${labels}</svg>`;
+const totals=rows.map(x=>Number(x.total)||0),invested=rows.map(x=>Number(x.invested)||0),all=[...totals,...invested],min=Math.min(...all),max=Math.max(...all),span=max-min||1;
+const xAt=i=>30+i*(540/(rows.length-1)),yAt=v=>185-((v-min)/span)*145;
+const totalPts=totals.map((v,i)=>`${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+const investedPts=invested.map((v,i)=>`${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+const circles=rows.map((r,i)=>`<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(Number(r.total)||0).toFixed(1)}" r="3.5" fill="#45c58a"><title>${esc(r.date)} — Patrimônio: ${fmt(r.total)}</title></circle><circle cx="${xAt(i).toFixed(1)}" cy="${yAt(Number(r.invested)||0).toFixed(1)}" r="3" fill="#7aa7ff"><title>${esc(r.date)} — Total investido: ${fmt(r.invested)}</title></circle>`).join('');
+const firstLabel=rows[0].date.split('-').reverse().join('/'),lastLabel=rows[rows.length-1].date.split('-').reverse().join('/');
+$('historyChart').innerHTML=`<svg viewBox="0 0 600 220" role="img" aria-label="Comparação do patrimônio e total investido ao longo do tempo"><line x1="30" y1="40" x2="570" y2="40" stroke="#294238"/><line x1="30" y1="112" x2="570" y2="112" stroke="#294238"/><line x1="30" y1="185" x2="570" y2="185" stroke="#294238"/><polyline points="${investedPts}" fill="none" stroke="#7aa7ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${totalPts}" fill="none" stroke="#45c58a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${circles}<text x="30" y="210" fill="#9db2a6" font-size="11">${firstLabel}</text><text x="570" y="210" text-anchor="end" fill="#9db2a6" font-size="11">${lastLabel}</text></svg>`;
 }
 $('historyRows').innerHTML=[...rows].reverse().slice(0,30).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${fmt(x.total)}</td><td>${fmt(x.invested)}</td><td class="${Number(x.result)>=0?'positive':'negative'}">${fmt(x.result)}</td></tr>`).join('');
-$('historyNote').textContent=rows.length?`${rows.length} registro(s) diário(s). O histórico é local e está incluído no backup.`:'Os registros são armazenados neste aparelho e incluídos no backup.';
+$('historyNote').textContent=rows.length?`${rows.length} registro(s) diário(s). O gráfico compara o patrimônio com o custo dos ativos registrados em cada dia. O histórico começa na data em que o registro foi ativado; os dias anteriores não são reconstruídos. Os dados estão incluídos no backup.`:'Os registros são armazenados neste aparelho e incluídos no backup.';
 }
 function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');$('saveAsset').textContent='Salvar ativo'}
 function isQuotedKind(kind){return kind==='Ação'||kind==='FII'}
