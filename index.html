@@ -78,8 +78,19 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <p class="muted">O total anual estimado considera a quantidade atual de cada ativo multiplicada pelo dividendo anual por unidade informado no cadastro. É uma projeção indicativa para os próximos 12 meses, não uma garantia de pagamento.</p>
 <h2 style="margin-top:20px">Dividendos recebidos por mês</h2>
 <div class="chartbox" id="incomeChart"><div class="history-empty">Os recebimentos aparecerão aqui quando forem registrados.</div></div>
-<h2 style="margin-top:20px">Ativos com maior renda anual estimada</h2>
-<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Quantidade</th><th>Renda anual estimada</th><th>Mensal estimado</th></tr></thead><tbody id="incomeRanking"></tbody></table></div>
+<h2 style="margin-top:20px">Dividendos estimados por ativo</h2>
+<p class="muted">Ações e FIIs ficam separados, com cada ticker apresentado individualmente.</p>
+<h2 style="margin-top:14px">Ações</h2>
+<div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Quantidade</th><th>Renda anual</th><th>Mensal estimado</th></tr></thead><tbody id="incomeStocks"></tbody></table></div>
+<h2 style="margin-top:18px">FIIs</h2>
+<div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Cotas</th><th>Renda anual</th><th>Mensal estimado</th></tr></thead><tbody id="incomeFiis"></tbody></table></div>
+<h2 style="margin-top:22px">Recebimentos registrados por ticker</h2>
+<p class="muted">Mostra quanto foi registrado para cada ativo, separado entre ações e FIIs.</p>
+<h2 style="margin-top:14px">Ações</h2>
+<div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Total recebido</th></tr></thead><tbody id="receivedStocks"></tbody></table></div>
+<h2 style="margin-top:18px">FIIs</h2>
+<div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Total recebido</th></tr></thead><tbody id="receivedFiis"></tbody></table></div>
+<p class="muted" id="receivedUnclassified"></p>
 <h2 style="margin-top:24px">Registrar rendimento recebido</h2><div class="formgrid">
 <label class="field">Ativo<input id="incomeTicker" placeholder="Ex.: BBSE3"></label><label class="field">Data<input id="incomeDate" type="date"></label><label class="field">Valor recebido (R$)<input id="incomeValue" type="number" min="0" step="0.01"></label>
 </div><div class="actions"><button class="primary" id="saveIncome">Registrar</button></div>
@@ -188,11 +199,28 @@ const sum=items=>items.reduce((total,x)=>total+(Number(x.value)||0),0);
 $('incomeMonth').textContent=fmt(sum(valid.filter(x=>x.date.slice(0,7)===month)));
 $('incomeYear').textContent=fmt(sum(valid.filter(x=>x.date.slice(0,4)===year)));
 let annual=0,payingValue=0;
-const ranking=db.assets.map(a=>{const qty=Number(a.qty)||0,div=Number(a.dividend)||0,price=Number(a.price)||0;const yearly=qty*div;if(div>0){annual+=yearly;payingValue+=qty*price}return {ticker:a.ticker,qty,yearly}}).filter(x=>x.yearly>0).sort((a,b)=>b.yearly-a.yearly);
+const byKind={Ação:[],FII:[]};
+for(const a of db.assets){
+const kind=a.kind,qty=Number(a.qty)||0,div=Number(a.dividend)||0,price=Number(a.price)||0,yearly=qty*div;
+if(div>0){annual+=yearly;payingValue+=qty*price}
+if(byKind[kind])byKind[kind].push({ticker:a.ticker,qty,yearly});
+}
 $('incomeEstimate').textContent=fmt(annual/12);
 $('incomeAnnualEstimate').textContent=fmt(annual);
 $('incomeYield').textContent=(payingValue?100*annual/payingValue:0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
-$('incomeRanking').innerHTML=ranking.length?ranking.map(x=>`<tr><td><b>${esc(x.ticker)}</b></td><td>${nfmt(x.qty)}</td><td>${fmt(x.yearly)}</td><td>${fmt(x.yearly/12)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Informe o dividendo anual por unidade nos ativos para montar o ranking.</td></tr>';
+const renderEstimated=(id,items,label)=>{$(id).innerHTML=items.filter(x=>x.yearly>0).sort((a,b)=>b.yearly-a.yearly).map(x=>'<tr><td><b>'+esc(x.ticker)+'</b></td><td>'+nfmt(x.qty)+'</td><td>'+fmt(x.yearly)+'</td><td>'+fmt(x.yearly/12)+'</td></tr>').join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhum '+label+' com dividendo anual informado.</td></tr>'};
+renderEstimated('incomeStocks',byKind.Ação,'ação');
+renderEstimated('incomeFiis',byKind.FII,'FII');
+const received={Ação:new Map(),FII:new Map()},unclassified=new Map();
+for(const x of valid){
+const ticker=String(x.ticker||'').trim().toUpperCase(),asset=db.assets.find(a=>String(a.ticker||'').toUpperCase()===ticker),kind=asset?.kind,value=Number(x.value)||0;
+if(kind==='Ação'||kind==='FII')received[kind].set(ticker,(received[kind].get(ticker)||0)+value);
+else unclassified.set(ticker,(unclassified.get(ticker)||0)+value);
+}
+const renderReceived=(id,map,label)=>{$(id).innerHTML=[...map.entries()].sort((a,b)=>b[1]-a[1]).map(([ticker,value])=>'<tr><td><b>'+esc(ticker)+'</b></td><td>'+fmt(value)+'</td></tr>').join('')||'<tr><td colspan="2" style="text-align:center;color:var(--muted)">Nenhum recebimento registrado para '+label+'.</td></tr>'};
+renderReceived('receivedStocks',received.Ação,'ações');
+renderReceived('receivedFiis',received.FII,'FIIs');
+$('receivedUnclassified').textContent=unclassified.size?'Ativos não classificados (ticker não encontrado na aba Ativos): '+[...unclassified.entries()].map(([ticker,value])=>ticker+' '+fmt(value)).join(' · '):'';
 const buckets=new Map();
 for(const x of valid){const m=x.date.slice(0,7);buckets.set(m,(buckets.get(m)||0)+(Number(x.value)||0))}
 const months=[];const base=new Date(Number(year),Number(now.slice(5,7))-1,1);
