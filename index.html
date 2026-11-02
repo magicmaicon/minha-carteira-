@@ -19,7 +19,7 @@ main{max-width:980px;margin:auto;padding:14px;display:grid;gap:13px}
 nav{display:flex;gap:7px;overflow:auto;padding-bottom:2px}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 12px;font-weight:650;cursor:pointer;white-space:nowrap}button.active,.primary{background:var(--green);border-color:var(--green);color:#092016}
 h2{font-size:16px;margin:0 0 12px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.field{display:grid;gap:5px;font-size:12px;color:var(--muted)}input,select{width:100%;min-width:0;background:#0c1914;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}
 .full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}td,th{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}.positive{color:var(--green)}.negative{color:var(--red)}section[hidden]{display:none}
-footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}
+footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.chartbox{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:10px;overflow:hidden}.chartbox svg{display:block;width:100%;height:auto}.history-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
 @media(min-width:700px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.v{font-size:24px}}
 </style>
 </head>
@@ -33,7 +33,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button>
 </nav>
 <section id="assets" class="panel">
 <h2>Adicionar / atualizar ativo</h2>
@@ -49,6 +49,20 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}
 <p class="muted" id="quoteStatus" style="margin-top:10px" aria-live="polite">Ações e FIIs terão cotação consultada automaticamente ao salvar e ao abrir o aplicativo. Tesouro e outros ativos permanecem manuais.</p>
 <h2 style="margin-top:20px">Minha carteira</h2>
 <div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRows"></tbody></table></div><p class="muted" id="emptyAssets">Nenhum ativo cadastrado.</p>
+</section>
+<section id="evolution" class="panel" hidden>
+<h2>Evolução patrimonial</h2>
+<p class="muted" style="margin-bottom:12px">O aplicativo registra uma posição por dia, depois de consultar as cotações. Se abrir novamente no mesmo dia, atualiza a posição daquele dia.</p>
+<div class="cards">
+ <div class="card"><div class="k">Último patrimônio registrado</div><div class="v" id="historyLatest">R$ 0,00</div></div>
+ <div class="card"><div class="k">Variação desde o primeiro registro</div><div class="v" id="historyChange">R$ 0,00</div><div class="k" id="historyChangePct">0,00%</div></div>
+ <div class="card"><div class="k">Registros</div><div class="v" id="historyCount">0</div></div>
+</div>
+<h2 style="margin-top:20px">Gráfico do patrimônio</h2>
+<div class="chartbox" id="historyChart"><div class="history-empty">Seu gráfico aparecerá após o primeiro registro.</div></div>
+<h2 style="margin-top:20px">Histórico diário</h2>
+<div class="tablewrap"><table><thead><tr><th>Data</th><th>Patrimônio</th><th>Investido</th><th>Resultado</th></tr></thead><tbody id="historyRows"></tbody></table></div>
+<p class="muted" id="historyNote" style="margin-top:10px">Os registros são armazenados neste aparelho e incluídos no backup.</p>
 </section>
 <section id="income" class="panel" hidden>
 <h2>Registrar rendimento recebido</h2><div class="formgrid">
@@ -75,24 +89,54 @@ Não é garantia de retorno.</p>
 (()=>{
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
-let db={assets:[],income:[],contrib:[]},editing=-1,quoteBusy=false;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[]}}catch(e){}
+let db={assets:[],income:[],contrib:[],history:[]},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[]}}catch(e){}
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const date=new Date().toISOString().slice(0,10);$('incomeDate').value=date;$('contribDate').value=date;
+const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const date=localDate();$('incomeDate').value=date;$('contribDate').value=date;
 function render(){
 let total=0,cost=0,annual=0;
 $('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
 $('incomeRows').innerHTML=db.income.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${i}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
-$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));project();
+$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
+}
+function recordSnapshot(){
+const total=db.assets.reduce((sum,a)=>sum+(Number(a.qty)||0)*(Number(a.price)||0),0);
+const invested=db.assets.reduce((sum,a)=>sum+(Number(a.qty)||0)*(Number(a.avg)||0),0);
+const snapshot={date:localDate(),total,invested,result:total-invested,pct:invested?100*(total-invested)/invested:0,assetsCount:db.assets.length};
+const existing=db.history.findIndex(x=>x.date===snapshot.date);
+if(existing>=0)db.history[existing]=snapshot;else db.history.push(snapshot);
+db.history.sort((a,b)=>a.date.localeCompare(b.date));
+if(db.history.length>365)db.history=db.history.slice(-365);
+persist();render();
+}
+function renderHistory(){
+const rows=[...db.history].sort((a,b)=>a.date.localeCompare(b.date));
+const latest=rows[rows.length-1],first=rows[0];
+$('historyLatest').textContent=latest?fmt(latest.total):fmt(0);
+const change=latest&&first?Number(latest.total)-Number(first.total):0;
+$('historyChange').textContent=fmt(change);$('historyChange').className='v '+(change>=0?'positive':'negative');
+const pct=first&&Number(first.total)!==0?100*change/Number(first.total):0;
+$('historyChangePct').textContent=pct.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+$('historyCount').textContent=String(rows.length);
+if(rows.length<2){$('historyChart').innerHTML='<div class="history-empty">'+(rows.length===1?'Primeiro registro salvo. O gráfico ganhará forma com os próximos dias.':'Seu gráfico aparecerá após o primeiro registro.')+'</div>'}
+else{
+const values=rows.map(x=>Number(x.total)||0),min=Math.min(...values),max=Math.max(...values),span=max-min||1;
+const pts=values.map((v,i)=>`${30+i*(540/(values.length-1))},${185-((v-min)/span)*145}`).join(' ');
+const labels=`<text x="30" y="210" fill="#9db2a6" font-size="11">${rows[0].date.split('-').reverse().join('/')}</text><text x="570" y="210" text-anchor="end" fill="#9db2a6" font-size="11">${rows[rows.length-1].date.split('-').reverse().join('/')}</text>`;
+$('historyChart').innerHTML=`<svg viewBox="0 0 600 220" role="img" aria-label="Gráfico da evolução do patrimônio"><line x1="30" y1="40" x2="570" y2="40" stroke="#294238"/><line x1="30" y1="112" x2="570" y2="112" stroke="#294238"/><line x1="30" y1="185" x2="570" y2="185" stroke="#294238"/><polyline points="${pts}" fill="none" stroke="#45c58a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${labels}</svg>`;
+}
+$('historyRows').innerHTML=[...rows].reverse().slice(0,30).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${fmt(x.total)}</td><td>${fmt(x.invested)}</td><td class="${Number(x.result)>=0?'positive':'negative'}">${fmt(x.result)}</td></tr>`).join('');
+$('historyNote').textContent=rows.length?`${rows.length} registro(s) diário(s). O histórico é local e está incluído no backup.`:'Os registros são armazenados neste aparelho e incluídos no backup.';
 }
 function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');$('saveAsset').textContent='Salvar ativo'}
 function isQuotedKind(kind){return kind==='Ação'||kind==='FII'}
 async function refreshQuotes(onlyTicker=null){
 if(quoteBusy){$('quoteStatus').textContent='Já existe uma atualização de cotações em andamento.';return}
 let targets=db.assets.filter(a=>isQuotedKind(a.kind)&&(!onlyTicker||a.ticker===onlyTicker));
-if(!targets.length){$('quoteStatus').textContent=onlyTicker?'Ativo salvo. Não há cotação automática para esse tipo de ativo.':'Nenhuma ação ou FII cadastrado para atualizar.';return}
+if(!targets.length){$('quoteStatus').textContent=onlyTicker?'Ativo salvo. Não há cotação automática para esse tipo de ativo.':'Nenhuma ação ou FII cadastrado para atualizar.';if(!onlyTicker)recordSnapshot();return}
 quoteBusy=true;$('refreshQuotes').disabled=true;$('quoteStatus').textContent=`Consultando ${targets.length} ativo(s)...`;
 let updated=0,failed=[];
 try{
@@ -119,9 +163,10 @@ for(const asset of chunk)if(!found.has(asset.ticker))failed.push(asset.ticker);
 }
 }
 if(updated>0){persist();render()}
+if(!onlyTicker)recordSnapshot();
 const stamp=new Date().toLocaleString('pt-BR');
 $('quoteStatus').textContent=`Atualização concluída: ${updated} cotação(ões) atualizada(s) em ${stamp}.`+(failed.length?' Não localizados/indisponíveis: '+[...new Set(failed)].join(', ')+'.':'');
-}catch(err){$('quoteStatus').textContent='Não foi possível atualizar as cotações. Confira sua conexão e tente novamente.'}
+}catch(err){if(!onlyTicker)recordSnapshot();$('quoteStatus').textContent='Não foi possível atualizar as cotações. Confira sua conexão e tente novamente.'}
 finally{quoteBusy=false;$('refreshQuotes').disabled=false}
 }
 $('saveAsset').onclick=()=>{
@@ -137,14 +182,14 @@ $('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confi
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','income','contrib','projection'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
 function project(){let m=Math.max(0,+$('monthlyInput').value||0),y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),r=Math.max(0,+$('rateInput').value||0)/1200,b=0;for(let i=0;i<y*12;i++)b=b*(1+r)+m;let c=m*y*12;$('projected').textContent=fmt(b);$('projectedContrib').textContent=fmt(c);$('projectedGain').textContent=fmt(b-c)}
 ['monthlyInput','yearsInput','rateInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
-$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db=x;persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[]};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 render();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();
+if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();else recordSnapshot();
 })();
 </script>
 </body></html>
