@@ -310,13 +310,18 @@ finally{quoteBusy=false;$('refreshQuotes').disabled=false}
 $('saveAsset').onclick=()=>{
 let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?0:+$('price').value,dividend=$('dividend').value.trim()===''?0:+$('dividend').value;
 if(!ticker||[qty,avg,price,dividend].some(x=>!Number.isFinite(x)||x<0)){alert('Informe o ativo e confira os valores.');return}
-let a={ticker,kind,qty,avg,price,dividend};if(editing>=0)db.assets[editing]=a;else{let i=db.assets.findIndex(x=>x.ticker===ticker&&x.kind===kind);if(i>=0)db.assets[i]=a;else db.assets.push(a)}
-persist();clearAsset();render();
+let a={ticker,kind,qty,avg,price,dividend};
+const oldAsset=editing>=0?{...db.assets[editing]}:null;
+const existingIndex=editing<0?db.assets.findIndex(x=>x.ticker===ticker&&x.kind===kind):-1;
+if(oldAsset&&(oldAsset.ticker!==ticker||oldAsset.kind!==kind))addManualAdjustment(oldAsset.ticker,oldAsset.kind,0,0);
+if(editing>=0)db.assets[editing]=a;else if(existingIndex>=0)db.assets[existingIndex]=a;else db.assets.push(a);
+addManualAdjustment(ticker,kind,qty,avg);
+persist();clearAsset();syncAssetsFromTradeLedger();render();
 if(isQuotedKind(kind))refreshQuotes(ticker);else $('quoteStatus').textContent='Ativo salvo. Para Tesouro e outros ativos, informe a cotação manualmente.';
 };
 $('cancelEdit').onclick=clearAsset;
 $('refreshQuotes').onclick=()=>refreshQuotes();
-$('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confirm('Excluir ativo?')){db.assets.splice(+t.dataset.del,1);persist();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})}};
+$('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})}};
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
@@ -370,12 +375,31 @@ let gain=null;
 if(t.side==='buy'){
 const oldCost=p.qty*p.avg,newCost=qty*price+fees;
 p.avg=(p.qty+qty)>0?(oldCost+newCost)/(p.qty+qty):0;p.qty+=qty;
-}else{
+}else if(t.side==='sell'){
 const proceeds=qty*price-fees;gain=proceeds-qty*p.avg;p.qty-=qty;if(Math.abs(p.qty)<0.0000001)p.qty=0;
+}else if(t.side==='adjust'){
+p.qty=qty;p.avg=qty>0?price:0;
 }
 balances.set(key,p);processed.push({...t,gain,positionAfter:p.qty});
 }
-return {balances:[...balances.values()].filter(p=>p.qty>0.0000001).sort((a,b)=>a.ticker.localeCompare(b.ticker)),rows:processed};
+return {allBalances:[...balances.values()],balances:[...balances.values()].filter(p=>p.qty>0.0000001).sort((a,b)=>a.ticker.localeCompare(b.ticker)),rows:processed};
+}
+function addManualAdjustment(ticker,kind,qty,avg){
+const cleanTicker=String(ticker||'').trim().toUpperCase();if(!cleanTicker)return;
+db.trades.push({id:'aj-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date:localDate(),ticker:cleanTicker,kind,side:'adjust',qty:Number(qty)||0,price:Number(avg)||0,fees:0});
+}
+function syncAssetsFromTradeLedger(){
+const ledger=calculateTradeLedger(),byKey=new Map(ledger.allBalances.map(p=>[p.kind+'|'+p.ticker,p]));
+for(const asset of db.assets){
+const p=byKey.get(asset.kind+'|'+String(asset.ticker||'').toUpperCase());
+asset.qty=p?Math.max(0,p.qty):0;asset.avg=p&&p.qty>0?p.avg:0;
+}
+for(const p of ledger.allBalances){
+if(p.qty<=0.0000001)continue;
+let asset=db.assets.find(a=>a.kind===p.kind&&String(a.ticker||'').toUpperCase()===p.ticker);
+if(!asset){asset={ticker:p.ticker,kind:p.kind,qty:p.qty,avg:p.avg,price:p.avg,dividend:0};db.assets.push(asset)}
+else{asset.qty=p.qty;asset.avg=p.avg}
+}
 }
 function renderTrades(){
 const now=localDate(),month=now.slice(0,7),ledger=calculateTradeLedger();
@@ -390,7 +414,7 @@ $('tradeOpeningDate').textContent=db.taxOpeningDate?String(db.taxOpeningDate).sp
 $('tradePositions').innerHTML=ledger.balances.length?ledger.balances.map(p=>'<tr><td><b>'+esc(p.ticker)+'</b><br><span class="muted">'+esc(p.kind)+'</span></td><td>'+nfmt(p.qty)+'</td><td>'+fmt(p.avg)+'</td><td>'+fmt(p.qty*p.avg)+'</td></tr>').join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma posição acompanhada.</td></tr>';
 const taxes=calculateMonthlyTaxes(ledger.rows);
 $('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+fmt(x.stockSales)+'</td><td class="'+(x.stockGain>=0?'positive':'negative')+'">'+fmt(x.stockGain)+'</td><td>'+fmt(x.fiiSales)+'</td><td class="'+(x.fiiGain>=0?'positive':'negative')+'">'+fmt(x.fiiGain)+'</td><td>'+fmt(x.tax)+'</td><td>'+fmt(x.irrf)+'</td><td><b>'+fmt(x.due)+'</b></td></tr>').join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">O resumo aparecerá após a primeira venda.</td></tr>';
-$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':'Venda')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>':'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
+$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>':'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
 $('tradeEmpty').hidden=ledger.rows.length>0;
 }
 function calculateMonthlyTaxes(rows){
@@ -418,12 +442,12 @@ db.trades.push(trade);
 const check=calculateTradeLedger();
 const invalid=check.rows.find(x=>x.side==='sell'&&x.positionAfter< -0.0000001);
 if(invalid){db.trades.pop();alert('A venda ultrapassa a quantidade disponível no controle para '+ticker+'. Confira o saldo inicial e as compras registradas.');return}
-persist();$('tradeTicker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';renderTrades();
+persist();syncAssetsFromTradeLedger();persist();$('tradeTicker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';render();if(isQuotedKind(kind))refreshQuotes(ticker);
 };
 $('tradeRows').addEventListener('click',e=>{
 const btn=e.target.closest('button[data-trade-delete]');if(!btn)return;
 const id=btn.getAttribute('data-trade-delete');if(!id)return;
-if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){db.trades=db.trades.filter(t=>String(t.id)!==String(id));persist();renderTrades()}
+if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){const previous=db.trades;db.trades=db.trades.filter(t=>String(t.id)!==String(id));const check=calculateTradeLedger();const invalid=check.rows.find(x=>x.side==='sell'&&x.positionAfter< -0.0000001);if(invalid){db.trades=previous;alert('Não é possível excluir: isso deixaria uma venda sem quantidade disponível.');return}syncAssetsFromTradeLedger();persist();render()}
 });
 function project(){
 let m=Math.max(0,+$('monthlyInput').value||0),
@@ -446,7 +470,7 @@ $('currentMonthlyIncome').textContent=fmt(currentAnnual/12);
 ['monthlyInput','yearsInput','rateInput','yieldInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
 $('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:x.assets.map(a=>({ticker:String(a.ticker||"").toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})),taxOpeningDate:x.taxOpeningDate||localDate()};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
-render();
+syncAssetsFromTradeLedger();persist();render();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();else recordSnapshot();
 })();
