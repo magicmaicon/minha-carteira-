@@ -24,19 +24,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </style>
 </head>
 <body>
-<section id="authTestPanel" class="panel" style="margin:14px auto;max-width:980px">
-<h2>Acesso à nuvem — teste de login</h2>
-<p class="muted">Entre com a conta criada no Supabase. Nesta primeira etapa, estamos testando somente a autenticação; seus dados continuam salvos neste aparelho e ainda não são sincronizados.</p>
-<div class="formgrid">
-<label class="field">E-mail<input id="cloudEmail" type="email" autocomplete="username" placeholder="seu e-mail" required></label>
-<label class="field">Senha<input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Sua senha" required></label>
-<div class="field" style="display:flex;align-items:end;gap:8px;flex-wrap:wrap">
-<button id="cloudLogin" type="button">Entrar</button>
-<button id="cloudLogout" type="button" hidden>Sair</button>
-</div>
-</div>
-<p id="cloudAuthStatus" class="muted" role="status" aria-live="polite">Aguardando login. Nenhum cadastro público é oferecido pelo aplicativo.</p>
-</section>
+
 <header><h1>Minha Carteira</h1><p>Controle de ações, FIIs, Tesouro, aportes e rendimentos</p></header>
 <main>
 <div class="cards">
@@ -214,67 +202,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
 <footer>Os dados ficam neste aparelho/navegador. As cotações de ações e FIIs são consultadas pela BRAPI por meio de uma conexão segura. Não há conexão com corretora nem sincronização em nuvem. Faça backups periódicos. Preços, rentabilidade e dividendos podem variar.</footer>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// MINHA_CARTEIRA_SUPABASE_AUTH_V1
-(()=> {
-const SUPABASE_URL='https://fudbsqcvxyjawnqzzujd.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_7evkVnMcTvJTXN8GY0sGpg_O1QHA-hq';
-const authStatus=document.getElementById('cloudAuthStatus');
-const loginButton=document.getElementById('cloudLogin');
-const logoutButton=document.getElementById('cloudLogout');
-const emailInput=document.getElementById('cloudEmail');
-const passwordInput=document.getElementById('cloudPassword');
-const say=(message)=>{if(authStatus)authStatus.textContent=message};
-if(!window.supabase || !window.supabase.createClient){
-  say('Não foi possível carregar o módulo de autenticação. Confira sua conexão e atualize a página.');
-  if(loginButton)loginButton.disabled=true;
-  return;
-}
-const cloudClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
-  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
-});
-const showSession=(session)=>{
-  if(session && session.user){
-    say('Login confirmado para esta sessão. A carteira ainda permanece local; a sincronização será implementada e testada na próxima etapa.');
-    if(loginButton)loginButton.hidden=true;
-    if(logoutButton)logoutButton.hidden=false;
-    if(emailInput)emailInput.disabled=true;
-    if(passwordInput){passwordInput.value='';passwordInput.disabled=true;}
-  }else{
-    say('Não conectado. Entre com a conta existente do Supabase.');
-    if(loginButton)loginButton.hidden=false;
-    if(logoutButton)logoutButton.hidden=true;
-    if(emailInput)emailInput.disabled=false;
-    if(passwordInput){passwordInput.disabled=false;}
-  }
-};
-if(loginButton)loginButton.addEventListener('click',async()=>{
-  const email=(emailInput.value||'').trim();
-  const password=passwordInput.value||'';
-  if(!email || !password){say('Informe seu e-mail e sua senha.');return;}
-  loginButton.disabled=true;
-  say('Verificando acesso…');
-  const {data,error}=await cloudClient.auth.signInWithPassword({email,password});
-  loginButton.disabled=false;
-  if(error){say('Não foi possível entrar: '+error.message);return;}
-  passwordInput.value='';
-  showSession(data.session);
-});
-if(logoutButton)logoutButton.addEventListener('click',async()=>{
-  logoutButton.disabled=true;
-  const {error}=await cloudClient.auth.signOut();
-  logoutButton.disabled=false;
-  if(error){say('Não foi possível encerrar a sessão: '+error.message);return;}
-  showSession(null);
-});
-cloudClient.auth.getSession().then(({data,error})=>{
-  if(error){say('Não foi possível consultar a sessão: '+error.message);return;}
-  showSession(data.session);
-});
-cloudClient.auth.onAuthStateChange((_event,session)=>showSession(session));
-})();
-</script>
+
 <script>
 (()=> {
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
