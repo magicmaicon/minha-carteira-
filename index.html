@@ -67,7 +67,18 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <p class="muted" id="historyNote" style="margin-top:10px">Os registros são armazenados neste aparelho e incluídos no backup.</p>
 </section>
 <section id="income" class="panel" hidden>
-<h2>Registrar rendimento recebido</h2><div class="formgrid">
+<h2>Painel de dividendos</h2>
+<div class="cards">
+ <div class="card"><div class="k">Recebido neste mês</div><div class="v" id="incomeMonth">R$ 0,00</div></div>
+ <div class="card"><div class="k">Recebido neste ano</div><div class="v" id="incomeYear">R$ 0,00</div></div>
+ <div class="card"><div class="k">Renda mensal estimada</div><div class="v" id="incomeEstimate">R$ 0,00</div></div>
+ <div class="card"><div class="k">DY estimado dos ativos pagadores</div><div class="v" id="incomeYield">0,00%</div></div>
+</div>
+<h2 style="margin-top:20px">Dividendos recebidos por mês</h2>
+<div class="chartbox" id="incomeChart"><div class="history-empty">Os recebimentos aparecerão aqui quando forem registrados.</div></div>
+<h2 style="margin-top:20px">Ativos com maior renda anual estimada</h2>
+<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Quantidade</th><th>Renda anual estimada</th><th>Mensal estimado</th></tr></thead><tbody id="incomeRanking"></tbody></table></div>
+<h2 style="margin-top:24px">Registrar rendimento recebido</h2><div class="formgrid">
 <label class="field">Ativo<input id="incomeTicker" placeholder="Ex.: BBSE3"></label><label class="field">Data<input id="incomeDate" type="date"></label><label class="field">Valor recebido (R$)<input id="incomeValue" type="number" min="0" step="0.01"></label>
 </div><div class="actions"><button class="primary" id="saveIncome">Registrar</button></div>
 <h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
@@ -101,8 +112,28 @@ function render(){
 let total=0,cost=0,annual=0;
 $('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-$('incomeRows').innerHTML=db.income.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${i}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
+renderIncomeDashboard();
+$('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
+}
+function renderIncomeDashboard(){
+const now=localDate(),month=now.slice(0,7),year=now.slice(0,4);
+const valid=db.income.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x.date))&&Number.isFinite(Number(x.value)));
+const sum=items=>items.reduce((total,x)=>total+(Number(x.value)||0),0);
+$('incomeMonth').textContent=fmt(sum(valid.filter(x=>x.date.slice(0,7)===month)));
+$('incomeYear').textContent=fmt(sum(valid.filter(x=>x.date.slice(0,4)===year)));
+let annual=0,payingValue=0;
+const ranking=db.assets.map(a=>{const qty=Number(a.qty)||0,div=Number(a.dividend)||0,price=Number(a.price)||0;const yearly=qty*div;if(div>0){annual+=yearly;payingValue+=qty*price}return {ticker:a.ticker,qty,yearly}}).filter(x=>x.yearly>0).sort((a,b)=>b.yearly-a.yearly);
+$('incomeEstimate').textContent=fmt(annual/12);
+$('incomeYield').textContent=(payingValue?100*annual/payingValue:0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+$('incomeRanking').innerHTML=ranking.length?ranking.map(x=>`<tr><td><b>${esc(x.ticker)}</b></td><td>${nfmt(x.qty)}</td><td>${fmt(x.yearly)}</td><td>${fmt(x.yearly/12)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Informe o dividendo anual por unidade nos ativos para montar o ranking.</td></tr>';
+const buckets=new Map();
+for(const x of valid){const m=x.date.slice(0,7);buckets.set(m,(buckets.get(m)||0)+(Number(x.value)||0))}
+const months=[];const base=new Date(Number(year),Number(now.slice(5,7))-1,1);
+for(let i=11;i>=0;i--){const d=new Date(base.getFullYear(),base.getMonth()-i,1),k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');months.push({key:k,label:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),value:buckets.get(k)||0})}
+const max=Math.max(1,...months.map(x=>x.value));
+const bars=months.map((m,i)=>{const h=m.value?Math.max(2,125*m.value/max):1,x=35+i*45,y=150-h;return `<rect x="${x}" y="${y}" width="27" height="${h}" rx="3" fill="#45c58a"><title>${esc(m.key)}: ${fmt(m.value)}</title></rect><text x="${x+13.5}" y="169" text-anchor="middle" fill="#9db2a6" font-size="9">${esc(m.label)}</text>`}).join('');
+$('incomeChart').innerHTML=valid.length?`<svg viewBox="0 0 580 180" role="img" aria-label="Dividendos recebidos nos últimos doze meses"><line x1="25" y1="150" x2="560" y2="150" stroke="#294238"/>${bars}</svg>`:'<div class="history-empty">Registre os dividendos recebidos para começar a acompanhar o histórico mensal.</div>';
 }
 function recordSnapshot(){
 const total=db.assets.reduce((sum,a)=>sum+(Number(a.qty)||0)*(Number(a.price)||0),0);
