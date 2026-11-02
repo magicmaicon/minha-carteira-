@@ -154,7 +154,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:22px">Registrar compra ou venda</h2>
 <div class="formgrid">
  <label class="field">Data da operação<input id="tradeDate" type="date"></label>
- <label class="field">Horário do negócio<input id="tradeTime" type="time"></label>
+ <label class="field">Horário do negócio<input id="tradeTime" type="time" step="1"></label>
  <label class="field">Ticker<input id="tradeTicker" maxlength="20" placeholder="Ex.: BBSE3"></label>
  <label class="field">Tipo de ativo<select id="tradeKind"><option>Ação</option><option>FII</option></select></label>
  <label class="field">Operação<select id="tradeSide"><option value="buy">Compra</option><option value="sell">Venda</option></select></label>
@@ -399,7 +399,7 @@ balances.set(key,p);processedByIndex.set(t._index,{...t,gain,positionAfter:p.qty
 }
 const dayGroups=new Map();
 for(const t of rows.filter(x=>x.mode==='daytrade'&&x.side!=='adjust')){
-const key=[t.date,t.kind,String(t.ticker||'').toUpperCase(),t.broker].join('|');
+const key=[t.date,t.kind,String(t.ticker||'').toUpperCase(),t.broker.toLocaleUpperCase()].join('|');
 if(!dayGroups.has(key))dayGroups.set(key,[]);dayGroups.get(key).push(t);
 }
 for(const group of dayGroups.values()){
@@ -486,7 +486,7 @@ else{x.fiiSales+=sale;x.fiiGain+=Number(t.gain)||0}
 const dailyDayTrade=new Map();
 for(const t of rows.filter(x=>x.side==='sell'&&x.mode==='daytrade'&&x.gain!==null&&x.gain!==undefined&&Number(x.matchedQty)>0)){
 const m=String(t.date).slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))continue;
-const key=[m,t.date,t.broker||''].join('|');dailyDayTrade.set(key,(dailyDayTrade.get(key)||0)+(Number(t.gain)||0));
+const key=[m,t.date,String(t.broker||'').trim().toLocaleUpperCase()].join('|');dailyDayTrade.set(key,(dailyDayTrade.get(key)||0)+(Number(t.gain)||0));
 }
 const dayTradeIrrfByMonth=new Map();
 for(const [key,result] of dailyDayTrade){const month=key.split('|')[0];dayTradeIrrfByMonth.set(month,(dayTradeIrrfByMonth.get(month)||0)+Math.max(0,result)*0.01)}
