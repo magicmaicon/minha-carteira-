@@ -168,7 +168,7 @@ const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('p
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
 let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null},editing=-1,quoteBusy=false;
 try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null}}catch(e){}
-if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));db.taxOpeningDate=localDate();}
+if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));const d=new Date();db.taxOpeningDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');localStorage.setItem(key,JSON.stringify(db));}
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
