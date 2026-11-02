@@ -96,7 +96,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:24px">Registrar rendimento recebido</h2><div class="formgrid">
 <label class="field">Ativo<input id="incomeTicker" placeholder="Ex.: BBSE3"></label><label class="field">Data<input id="incomeDate" type="date"></label><label class="field">Valor recebido (R$)<input id="incomeValue" type="number" min="0" step="0.01"></label>
 </div><div class="actions"><button class="primary" id="saveIncome">Registrar</button></div>
-<h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
+<h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Horário</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
 </section>
 <section id="contrib" class="panel" hidden>
 <h2>Registrar aporte</h2><div class="formgrid">
@@ -154,6 +154,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:22px">Registrar compra ou venda</h2>
 <div class="formgrid">
  <label class="field">Data da operação<input id="tradeDate" type="date"></label>
+ <label class="field">Horário do negócio<input id="tradeTime" type="time"></label>
  <label class="field">Ticker<input id="tradeTicker" maxlength="20" placeholder="Ex.: BBSE3"></label>
  <label class="field">Tipo de ativo<select id="tradeKind"><option>Ação</option><option>FII</option></select></label>
  <label class="field">Operação<select id="tradeSide"><option value="buy">Compra</option><option value="sell">Venda</option></select></label>
@@ -385,7 +386,7 @@ if(remove){if(confirm('Excluir esta meta?')){db.goals=db.goals.filter(g=>g.id!==
 function calculateTradeLedger(){
 const balances=new Map();
 for(const a of (db.taxOpeningBalances||[])){const k=a.kind+'|'+String(a.ticker||'').toUpperCase();balances.set(k,{ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})}
-const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i,mode:t.mode==='daytrade'?'daytrade':'common',broker:String(t.broker||'').trim()})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a._index-b._index);
+const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i,mode:t.mode==='daytrade'?'daytrade':'common',broker:String(t.broker||'').trim(),time:String(t.time||'')})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||(a.mode==='daytrade'&&b.mode==='daytrade'?String(a.time).localeCompare(String(b.time)):0)||a._index-b._index);
 const processedByIndex=new Map();
 const commonRows=rows.filter(t=>t.mode!=='daytrade'||t.side==='adjust');
 for(const t of commonRows){
@@ -418,7 +419,7 @@ if(remaining>0.0000001)queues[t.side].push({trade:t,remaining});
 }
 for(const t of group){
 const a=acc.get(t._index),qty=Number(t.qty)||0,complete=a.matchedQty>=qty-0.0000001;
-const status=!broker?'Pendente: corretora não informada':complete?'Fechado':a.matchedQty>0?'Parcial: existe quantidade sem par':'Pendente: aguardando operação oposta';
+const status=!broker?'Pendente: corretora não informada':!t.time?'Pendente: horário do negócio não informado':complete?'Fechado':a.matchedQty>0?'Parcial: existe quantidade sem par':'Pendente: aguardando operação oposta';
 processedByIndex.set(t._index,{...t,gain:t.side==='sell'&&a.matchedQty>0?a.gain:null,matchedQty:a.matchedQty,matchedSaleValue:a.matchedSaleValue,positionAfter:(balances.get(t.kind+'|'+String(t.ticker||'').toUpperCase())||{}).qty||0,dayTradeStatus:status});
 }
 }
@@ -468,7 +469,7 @@ $('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td
 $('taxLossOpeningStatus').textContent='Saldos iniciais salvos: ações '+fmt(db.taxLossOpening.stock)+', FIIs '+fmt(db.taxLossOpening.fii)+' e day trade '+fmt(db.taxLossOpening.dayTrade)+'.';
 const pending=ledger.rows.filter(t=>t.mode==='daytrade'&&t.dayTradeStatus&&t.dayTradeStatus!=='Fechado');
 $('tradeFormStatus').textContent=pending.length?pending.length+' lançamento(s) de day trade parcial(is) ou pendente(s). O IR estimado considera apenas quantidades efetivamente pareadas; confira corretora, data, ativo e sequência das operações.':'Day trade pareado por ordem cronológica, considerando data, ativo e corretora. Confira sempre as notas de corretagem.';
-$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+(t.mode==='daytrade'?'Day trade':'Comum')+'</td><td>'+esc(t.broker||'—')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?(t.gain===null?'<span class="negative">Pendente</span>':'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>'):'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
+$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td>'+esc(t.time||'—')+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+(t.mode==='daytrade'?'Day trade':'Comum')+'</td><td>'+esc(t.broker||'—')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?(t.gain===null?'<span class="negative">Pendente</span>':'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>'):'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
 $('tradeEmpty').hidden=ledger.rows.length>0;
 }
 function calculateMonthlyTaxes(rows){
@@ -527,15 +528,15 @@ db.taxLossOpening={stock,fii,dayTrade};persist();renderTrades();$('taxLossOpenin
 };
 $('tradeDate').value=localDate();
 $('saveTrade').onclick=()=>{
-const date=$('tradeDate').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,mode=$('tradeMode').value,broker=$('tradeBroker').value.trim(),qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
-if(!date||!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0){alert('Confira data, ticker, quantidade, preço e taxas.');return}if(mode==='daytrade'&&!broker){alert('Informe a corretora para registrar day trade.');return}
+const date=$('tradeDate').value,time=$('tradeTime').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,mode=$('tradeMode').value,broker=$('tradeBroker').value.trim(),qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
+if(!date||!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0){alert('Confira data, ticker, quantidade, preço e taxas.');return}if(mode==='daytrade'&&!broker){alert('Informe a corretora para registrar day trade.');return}if(mode==='daytrade'&&!time){alert('Informe o horário do negócio conforme a nota de corretagem.');return}
 if(db.taxOpeningDate&&date<db.taxOpeningDate){alert('A data deve ser igual ou posterior ao saldo inicial ('+db.taxOpeningDate.split('-').reverse().join('/')+').');return}
-const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,ticker,kind,side,mode,broker,qty,price,fees};
+const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,time,ticker,kind,side,mode,broker,qty,price,fees};
 db.trades.push(trade);
 const check=calculateTradeLedger();
 const invalid=check.rows.find(x=>x.side==='sell'&&x.mode!=='daytrade'&&x.positionAfter< -0.0000001);
 if(invalid){db.trades.pop();alert('A venda ultrapassa a quantidade disponível no controle para '+ticker+'. Confira o saldo inicial e as compras registradas.');return}
-persist();syncAssetsFromTradeLedger();persist();$('tradeTicker').value='';$('tradeBroker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';render();if(isQuotedKind(kind))refreshQuotes(ticker);
+persist();syncAssetsFromTradeLedger();persist();$('tradeTicker').value='';$('tradeBroker').value='';$('tradeTime').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';render();if(isQuotedKind(kind))refreshQuotes(ticker);
 };
 $('tradeRows').addEventListener('click',e=>{
 const btn=e.target.closest('button[data-trade-delete]');if(!btn)return;
