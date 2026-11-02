@@ -19,7 +19,7 @@ main{max-width:980px;margin:auto;padding:14px;display:grid;gap:13px}
 nav{display:flex;gap:7px;overflow:auto;padding-bottom:2px}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 12px;font-weight:650;cursor:pointer;white-space:nowrap}button.active,.primary{background:var(--green);border-color:var(--green);color:#092016}
 h2{font-size:16px;margin:0 0 12px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.field{display:grid;gap:5px;font-size:12px;color:var(--muted)}input,select{width:100%;min-width:0;background:#0c1914;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}
 .full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}td,th{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}.positive{color:var(--green)}.negative{color:var(--red)}section[hidden]{display:none}
-footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.chartbox{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:10px;overflow:hidden}.chartbox svg{display:block;width:100%;height:auto}.history-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.chartbox{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:10px;overflow:hidden}.chartbox svg{display:block;width:100%;height:auto}.history-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}.asset-group{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:11px;margin:10px 0}.asset-group h3{font-size:14px;margin:0 0 8px;color:var(--green)}.asset-group table{min-width:680px}
 @media(min-width:700px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.v{font-size:24px}}
 </style>
 </head>
@@ -47,8 +47,13 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </div>
 <div class="actions"><button class="primary" id="saveAsset">Salvar ativo</button><button id="cancelEdit">Cancelar edição</button><button id="refreshQuotes">Atualizar cotações</button></div>
 <p class="muted" id="quoteStatus" style="margin-top:10px" aria-live="polite">Ações e FIIs terão cotação consultada automaticamente ao salvar e ao abrir o aplicativo. Tesouro e outros ativos permanecem manuais.</p>
-<h2 style="margin-top:20px">Minha carteira</h2>
-<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRows"></tbody></table></div><p class="muted" id="emptyAssets">Nenhum ativo cadastrado.</p>
+<h2 style="margin-top:20px">Minha carteira por grupos</h2>
+<p class="muted" style="margin-bottom:12px">Seus investimentos ficam organizados por categoria. Os dados e operações continuam vinculados aos mesmos ativos.</p>
+<div class="asset-group"><h3>Ações</h3><div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRowsStocks"></tbody></table></div></div>
+<div class="asset-group"><h3>FIIs</h3><div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRowsFiis"></tbody></table></div></div>
+<div class="asset-group"><h3>Tesouro Direto</h3><div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRowsTreasury"></tbody></table></div></div>
+<div class="asset-group"><h3>Outros</h3><div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRowsOther"></tbody></table></div></div>
+<p class="muted" id="emptyAssets">Nenhum ativo cadastrado.</p>
 </section>
 <section id="evolution" class="panel" hidden>
 <h2>Evolução patrimonial</h2>
@@ -209,7 +214,15 @@ const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getM
 const date=localDate();$('incomeDate').value=date;$('contribDate').value=date;
 function render(){
 let total=0,cost=0,annual=0;
-$('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
+const groupRows={Ação:[],FII:[],Tesouro:[],Outro:[]};
+db.assets.forEach((a,i)=>{const kind=Object.prototype.hasOwnProperty.call(groupRows,a.kind)?a.kind:'Outro';groupRows[kind].push({asset:a,index:i})});
+const renderAssetGroup=(id,items,label)=>{
+$(id).innerHTML=items.map(({asset:a,index:i})=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhum ativo em ${label.toLowerCase()}.</td></tr>`;
+};
+renderAssetGroup('assetRowsStocks',groupRows.Ação,'ações');
+renderAssetGroup('assetRowsFiis',groupRows.FII,'FIIs');
+renderAssetGroup('assetRowsTreasury',groupRows.Tesouro,'Tesouro Direto');
+renderAssetGroup('assetRowsOther',groupRows.Outro,'outros');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
 renderIncomeDashboard();project();renderGoals();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
