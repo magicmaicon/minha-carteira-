@@ -72,8 +72,10 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Recebido neste mês</div><div class="v" id="incomeMonth">R$ 0,00</div></div>
  <div class="card"><div class="k">Recebido neste ano</div><div class="v" id="incomeYear">R$ 0,00</div></div>
  <div class="card"><div class="k">Renda mensal estimada</div><div class="v" id="incomeEstimate">R$ 0,00</div></div>
+  <div class="card"><div class="k">Total anual estimado (próximos 12 meses)</div><div class="v" id="incomeAnnualEstimate">R$ 0,00</div></div>
  <div class="card"><div class="k">DY estimado dos ativos pagadores</div><div class="v" id="incomeYield">0,00%</div></div>
 </div>
+<p class="muted">O total anual estimado considera a quantidade atual de cada ativo multiplicada pelo dividendo anual por unidade informado no cadastro. É uma projeção indicativa para os próximos 12 meses, não uma garantia de pagamento.</p>
 <h2 style="margin-top:20px">Dividendos recebidos por mês</h2>
 <div class="chartbox" id="incomeChart"><div class="history-empty">Os recebimentos aparecerão aqui quando forem registrados.</div></div>
 <h2 style="margin-top:20px">Ativos com maior renda anual estimada</h2>
@@ -138,6 +140,7 @@ $('incomeYear').textContent=fmt(sum(valid.filter(x=>x.date.slice(0,4)===year)));
 let annual=0,payingValue=0;
 const ranking=db.assets.map(a=>{const qty=Number(a.qty)||0,div=Number(a.dividend)||0,price=Number(a.price)||0;const yearly=qty*div;if(div>0){annual+=yearly;payingValue+=qty*price}return {ticker:a.ticker,qty,yearly}}).filter(x=>x.yearly>0).sort((a,b)=>b.yearly-a.yearly);
 $('incomeEstimate').textContent=fmt(annual/12);
+$('incomeAnnualEstimate').textContent=fmt(annual);
 $('incomeYield').textContent=(payingValue?100*annual/payingValue:0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
 $('incomeRanking').innerHTML=ranking.length?ranking.map(x=>`<tr><td><b>${esc(x.ticker)}</b></td><td>${nfmt(x.qty)}</td><td>${fmt(x.yearly)}</td><td>${fmt(x.yearly/12)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Informe o dividendo anual por unidade nos ativos para montar o ranking.</td></tr>';
 const buckets=new Map();
