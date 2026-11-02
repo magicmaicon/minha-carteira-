@@ -82,8 +82,10 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <p class="muted">Ações e FIIs ficam separados, com cada ticker apresentado individualmente.</p>
 <h2 style="margin-top:14px">Ações</h2>
 <div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Quantidade</th><th>Renda anual</th><th>Mensal estimado</th></tr></thead><tbody id="incomeStocks"></tbody></table></div>
+<div class="cards" style="margin-top:8px"><div class="card"><div class="k">Total anual estimado – ações</div><div class="v" id="incomeStocksAnnual">R$ 0,00</div></div><div class="card"><div class="k">Total mensal estimado – ações</div><div class="v" id="incomeStocksMonthly">R$ 0,00</div></div></div>
 <h2 style="margin-top:18px">FIIs</h2>
 <div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Cotas</th><th>Renda anual</th><th>Mensal estimado</th></tr></thead><tbody id="incomeFiis"></tbody></table></div>
+<div class="cards" style="margin-top:8px"><div class="card"><div class="k">Total anual estimado – FIIs</div><div class="v" id="incomeFiisAnnual">R$ 0,00</div></div><div class="card"><div class="k">Total mensal estimado – FIIs</div><div class="v" id="incomeFiisMonthly">R$ 0,00</div></div></div>
 <h2 style="margin-top:22px">Recebimentos registrados por ticker</h2>
 <p class="muted">Mostra quanto foi registrado para cada ativo, separado entre ações e FIIs.</p>
 <h2 style="margin-top:14px">Ações</h2>
@@ -211,6 +213,9 @@ $('incomeYield').textContent=(payingValue?100*annual/payingValue:0).toLocaleStri
 const renderEstimated=(id,items,label)=>{$(id).innerHTML=items.filter(x=>x.yearly>0).sort((a,b)=>b.yearly-a.yearly).map(x=>'<tr><td><b>'+esc(x.ticker)+'</b></td><td>'+nfmt(x.qty)+'</td><td>'+fmt(x.yearly)+'</td><td>'+fmt(x.yearly/12)+'</td></tr>').join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhum '+label+' com dividendo anual informado.</td></tr>'};
 renderEstimated('incomeStocks',byKind.Ação,'ação');
 renderEstimated('incomeFiis',byKind.FII,'FII');
+const stockAnnual=byKind.Ação.reduce((sum,a)=>sum+a.yearly,0),fiiAnnual=byKind.FII.reduce((sum,a)=>sum+a.yearly,0);
+$('incomeStocksAnnual').textContent=fmt(stockAnnual);$('incomeStocksMonthly').textContent=fmt(stockAnnual/12);
+$('incomeFiisAnnual').textContent=fmt(fiiAnnual);$('incomeFiisMonthly').textContent=fmt(fiiAnnual/12);
 const received={Ação:new Map(),FII:new Map()},unclassified=new Map();
 for(const x of valid){
 const ticker=String(x.ticker||'').trim().toUpperCase(),asset=db.assets.find(a=>String(a.ticker||'').toUpperCase()===ticker),kind=asset?.kind,value=Number(x.value)||0;
