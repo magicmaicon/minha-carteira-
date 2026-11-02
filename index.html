@@ -33,7 +33,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button><button data-tab="goals">Minhas Metas</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button><button data-tab="goals">Minhas Metas</button><button data-tab="trades">Vendas e IR</button>
 </nav>
 <section id="assets" class="panel">
 <h2>Adicionar / atualizar ativo</h2>
@@ -129,6 +129,36 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:22px">Metas concluídas</h2>
 <div id="completedGoalsList"></div>
 </section>
+<section id="trades" class="panel" hidden>
+<h2>Controle de operações e imposto estimado</h2>
+<p class="muted">O saldo inicial foi copiado dos ativos cadastrados na carteira nesta primeira ativação. Registre daqui em diante as compras e vendas para acompanhar quantidades, preço médio e resultado realizado. Confira sempre com as notas de corretagem.</p>
+<div class="cards">
+ <div class="card"><div class="k">Vendas neste mês</div><div class="v" id="tradeMonthSales">R$ 0,00</div></div>
+ <div class="card"><div class="k">Resultado realizado no mês</div><div class="v" id="tradeMonthGain">R$ 0,00</div></div>
+ <div class="card"><div class="k">IR estimado no mês</div><div class="v" id="tradeMonthTax">R$ 0,00</div></div>
+ <div class="card"><div class="k">Saldo inicial em</div><div class="v" id="tradeOpeningDate">—</div></div>
+</div>
+<h2 style="margin-top:22px">Registrar compra ou venda</h2>
+<div class="formgrid">
+ <label class="field">Data da operação<input id="tradeDate" type="date"></label>
+ <label class="field">Ticker<input id="tradeTicker" maxlength="20" placeholder="Ex.: BBSE3"></label>
+ <label class="field">Tipo de ativo<select id="tradeKind"><option>Ação</option><option>FII</option></select></label>
+ <label class="field">Operação<select id="tradeSide"><option value="buy">Compra</option><option value="sell">Venda</option></select></label>
+ <label class="field">Quantidade<input id="tradeQty" type="number" min="0.0001" step="0.0001"></label>
+ <label class="field">Preço por unidade (R$)<input id="tradePrice" type="number" min="0.0001" step="0.0001"></label>
+ <label class="field">Taxas e custos (R$)<input id="tradeFees" type="number" min="0" step="0.01" value="0"></label>
+</div>
+<div class="actions"><button class="primary" id="saveTrade">Registrar operação</button></div>
+<p class="muted" id="tradeFormStatus" style="margin-top:8px" aria-live="polite">Nesta primeira versão, o controle calcula operações comuns. O módulo de day trade será tratado separadamente para não misturar regras.</p>
+<h2 style="margin-top:22px">Posição acompanhada pelo controle</h2>
+<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Quantidade</th><th>Preço médio</th><th>Custo estimado</th></tr></thead><tbody id="tradePositions"></tbody></table></div>
+<h2 style="margin-top:22px">Resumo mensal de imposto estimado</h2>
+<div class="tablewrap"><table><thead><tr><th>Mês</th><th>Vendas ações</th><th>Resultado ações</th><th>Vendas FII</th><th>Resultado FII</th><th>IR estimado</th><th>IRRF estimado</th><th>Saldo estimado</th></tr></thead><tbody id="tradeTaxRows"></tbody></table></div>
+<p class="muted" style="margin-top:8px">Estimativa simplificada para operações comuns: ações podem ter isenção quando o total de vendas de ações no mês não ultrapassa R$ 20.000; FII não utiliza essa isenção. O cálculo não inclui prejuízos anteriores, operações de day trade, ajustes especiais ou outras situações fiscais. Não substitui a apuração oficial.</p>
+<h2 style="margin-top:22px">Histórico por operação</h2>
+<div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Operação</th><th>Quantidade</th><th>Preço</th><th>Taxas</th><th>Resultado da venda</th><th></th></tr></thead><tbody id="tradeRows"></tbody></table></div>
+<p class="muted" id="tradeEmpty">Nenhuma operação registrada ainda.</p>
+</section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
 <footer>Os dados ficam neste aparelho/navegador. As cotações de ações e FIIs são consultadas pela BRAPI por meio de uma conexão segura. Não há conexão com corretora nem sincronização em nuvem. Faça backups periódicos. Preços, rentabilidade e dividendos podem variar.</footer>
 </main>
@@ -136,8 +166,9 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 (()=>{
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
-let db={assets:[],income:[],contrib:[],history:[],goals:[]},editing=-1,quoteBusy=false;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[]}}catch(e){}
+let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null}}catch(e){}
+if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));db.taxOpeningDate=localDate();}
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -146,7 +177,7 @@ function render(){
 let total=0,cost=0,annual=0;
 $('assetRows').innerHTML=db.assets.map((a,i)=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b><br><span class="muted">${esc(a.kind)}</span></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-renderIncomeDashboard();project();renderGoals();
+renderIncomeDashboard();project();renderGoals();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
 }
@@ -256,7 +287,7 @@ $('assetRows').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confi
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection','goals'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection','goals','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
 function renderGoals(){
 const goals=Array.isArray(db.goals)?db.goals:[];
 const active=goals.filter(g=>g.status!=='completed');
@@ -293,6 +324,73 @@ const complete=e.target.dataset.goalComplete,remove=e.target.dataset.goalDelete;
 if(complete){const goal=db.goals.find(g=>g.id===complete);if(goal){goal.current=Number(goal.target)||0;goal.status='completed';goal.completedAt=localDate();persist();renderGoals()}}
 if(remove){if(confirm('Excluir esta meta?')){db.goals=db.goals.filter(g=>g.id!==remove);persist();renderGoals()}}
 });
+function calculateTradeLedger(){
+const balances=new Map();
+for(const a of (db.taxOpeningBalances||[])){const k=a.kind+'|'+String(a.ticker||'').toUpperCase();balances.set(k,{ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})}
+const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a._index-b._index);
+const processed=[];
+for(const t of rows){
+const key=t.kind+'|'+String(t.ticker||'').toUpperCase();
+let p=balances.get(key)||{ticker:String(t.ticker||'').toUpperCase(),kind:t.kind,qty:0,avg:0};
+const qty=Number(t.qty)||0,price=Number(t.price)||0,fees=Number(t.fees)||0;
+let gain=null;
+if(t.side==='buy'){
+const oldCost=p.qty*p.avg,newCost=qty*price+fees;
+p.avg=(p.qty+qty)>0?(oldCost+newCost)/(p.qty+qty):0;p.qty+=qty;
+}else{
+const proceeds=qty*price-fees;gain=proceeds-qty*p.avg;p.qty-=qty;if(Math.abs(p.qty)<0.0000001)p.qty=0;
+}
+balances.set(key,p);processed.push({...t,gain,positionAfter:p.qty});
+}
+return {balances:[...balances.values()].filter(p=>p.qty>0.0000001).sort((a,b)=>a.ticker.localeCompare(b.ticker)),rows:processed};
+}
+function renderTrades(){
+const now=localDate(),month=now.slice(0,7),ledger=calculateTradeLedger();
+const sales=ledger.rows.filter(t=>t.side==='sell');
+const thisMonth=sales.filter(t=>String(t.date).slice(0,7)===month);
+$('tradeMonthSales').textContent=fmt(thisMonth.reduce((s,t)=>s+t.qty*t.price,0));
+const gain=thisMonth.reduce((s,t)=>s+(Number(t.gain)||0),0);
+$('tradeMonthGain').textContent=fmt(gain);$('tradeMonthGain').className='v '+(gain>=0?'positive':'negative');
+const monthTax=calculateMonthlyTaxes(ledger.rows).find(x=>x.month===month);
+$('tradeMonthTax').textContent=fmt(monthTax?monthTax.due:0);
+$('tradeOpeningDate').textContent=db.taxOpeningDate?String(db.taxOpeningDate).split('-').reverse().join('/'):'—';
+$('tradePositions').innerHTML=ledger.balances.length?ledger.balances.map(p=>'<tr><td><b>'+esc(p.ticker)+'</b><br><span class="muted">'+esc(p.kind)+'</span></td><td>'+nfmt(p.qty)+'</td><td>'+fmt(p.avg)+'</td><td>'+fmt(p.qty*p.avg)+'</td></tr>').join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma posição acompanhada.</td></tr>';
+const taxes=calculateMonthlyTaxes(ledger.rows);
+$('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+fmt(x.stockSales)+'</td><td class="'+(x.stockGain>=0?'positive':'negative')+'">'+fmt(x.stockGain)+'</td><td>'+fmt(x.fiiSales)+'</td><td class="'+(x.fiiGain>=0?'positive':'negative')+'">'+fmt(x.fiiGain)+'</td><td>'+fmt(x.tax)+'</td><td>'+fmt(x.irrf)+'</td><td><b>'+fmt(x.due)+'</b></td></tr>').join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted)">O resumo aparecerá após a primeira venda.</td></tr>';
+$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':'Venda')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>':'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
+$('tradeEmpty').hidden=ledger.rows.length>0;
+}
+function calculateMonthlyTaxes(rows){
+const months=new Map();
+for(const t of rows.filter(x=>x.side==='sell')){
+const m=String(t.date).slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))continue;
+if(!months.has(m))months.set(m,{month:m,stockSales:0,stockGain:0,fiiSales:0,fiiGain:0});
+const x=months.get(m),sale=Number(t.qty)*Number(t.price),g=Number(t.gain)||0;
+if(t.kind==='Ação'){x.stockSales+=sale;x.stockGain+=g}else{x.fiiSales+=sale;x.fiiGain+=g}
+}
+return [...months.values()].sort((a,b)=>a.month.localeCompare(b.month)).map(x=>{
+const stockTax=x.stockSales>20000?Math.max(0,x.stockGain)*0.15:0;
+const fiiTax=Math.max(0,x.fiiGain)*0.20;
+const tax=stockTax+fiiTax,irrfGross=(x.stockSales+x.fiiSales)*0.00005,irrf=irrfGross>1?irrfGross:0;
+return {...x,tax,irrf,due:Math.max(0,tax-irrf)};
+});
+}
+$('tradeDate').value=localDate();
+$('saveTrade').onclick=()=>{
+const date=$('tradeDate').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
+if(!date||!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0){alert('Confira data, ticker, quantidade, preço e taxas.');return}
+if(db.taxOpeningDate&&date<db.taxOpeningDate){alert('A data deve ser igual ou posterior ao saldo inicial ('+db.taxOpeningDate.split('-').reverse().join('/')+').');return}
+const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,ticker,kind,side,qty,price,fees};
+db.trades.push(trade);
+const check=calculateTradeLedger();
+const invalid=check.rows.find(x=>x.side==='sell'&&x.positionAfter< -0.0000001);
+if(invalid){db.trades.pop();alert('A venda ultrapassa a quantidade disponível no controle para '+ticker+'. Confira o saldo inicial e as compras registradas.');return}
+persist();$('tradeTicker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';renderTrades();
+};
+$('tradeRows').addEventListener('click',e=>{
+const id=e.target.dataset.tradeDelete;if(!id)return;
+if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){db.trades=db.trades.filter(t=>t.id!==id);persist();renderTrades()}
+});
 function project(){
 let m=Math.max(0,+$('monthlyInput').value||0),
 y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),
@@ -313,7 +411,7 @@ $('currentMonthlyIncome').textContent=fmt(currentAnnual/12);
 }
 ['monthlyInput','yearsInput','rateInput','yieldInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
-$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[]};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:x.assets.map(a=>({ticker:String(a.ticker||"").toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})),taxOpeningDate:x.taxOpeningDate||localDate()};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 render();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();else recordSnapshot();
