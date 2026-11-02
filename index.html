@@ -158,6 +158,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <label class="field">Tipo de ativo<select id="tradeKind"><option>Ação</option><option>FII</option></select></label>
  <label class="field">Operação<select id="tradeSide"><option value="buy">Compra</option><option value="sell">Venda</option></select></label>
  <label class="field">Modalidade<select id="tradeMode"><option value="common">Operação comum</option><option value="daytrade">Day trade</option></select></label>
+ <label class="field">Corretora / instituição<input id="tradeBroker" maxlength="80" placeholder="Ex.: nome da corretora"></label>
  <label class="field">Quantidade<input id="tradeQty" type="number" min="0.0001" step="0.0001"></label>
  <label class="field">Preço por unidade (R$)<input id="tradePrice" type="number" min="0.0001" step="0.0001"></label>
  <label class="field">Taxas e custos (R$)<input id="tradeFees" type="number" min="0" step="0.01" value="0"></label>
@@ -175,11 +176,20 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </div>
 <div class="actions"><button class="primary" id="saveTaxLossOpening">Salvar saldos iniciais</button></div>
 <p class="muted" id="taxLossOpeningStatus" style="margin-top:8px" aria-live="polite">Informe apenas prejuízos ainda disponíveis para compensação. Não some valores já utilizados.</p>
+<h2 style="margin-top:22px">IRRF acumulado anterior ao controle</h2>
+<p class="muted">Informe apenas créditos de IRRF ainda disponíveis, conforme suas notas e demonstrativos. O crédito comum pode ser carregado para meses posteriores; o crédito de day trade deve ser controlado dentro do mesmo ano-calendário.</p>
+<div class="formgrid">
+ <label class="field">IRRF de operações comuns (R$)<input id="taxIrrfCommonOpening" type="number" min="0" step="0.01" value="0"></label>
+ <label class="field">IRRF de day trade (R$)<input id="taxIrrfDayTradeOpening" type="number" min="0" step="0.01" value="0"></label>
+ <label class="field">Ano do crédito de day trade<input id="taxIrrfDayTradeYear" type="number" min="2000" max="2100" step="1"></label>
+</div>
+<div class="actions"><button class="primary" id="saveTaxIrrfOpening">Salvar saldos de IRRF</button></div>
+<p class="muted" id="taxIrrfOpeningStatus" style="margin-top:8px" aria-live="polite"></p>
 <h2 style="margin-top:22px">Resumo mensal de imposto estimado</h2>
-<div class="tablewrap"><table><thead><tr><th>Mês</th><th>Vendas ações comuns</th><th>Resultado ações</th><th>Vendas FII</th><th>Resultado FII</th><th>Vendas day trade</th><th>Resultado day trade</th><th>IR comum</th><th>IRRF comum</th><th>IR day trade</th><th>IRRF day trade</th><th>Saldo prejuízo ações</th><th>Saldo prejuízo FII</th><th>Saldo prejuízo day trade</th><th>Total estimado</th></tr></thead><tbody id="tradeTaxRows"></tbody></table></div>
-<p class="muted" style="margin-top:8px">O controle compensa prejuízos por modalidade e em ordem cronológica. Ações comuns, FIIs e day trade têm saldos separados. O cálculo é auxiliar e simplificado: não contempla todas as situações fiscais, ajustes, regras especiais ou conferência documental. Para apuração oficial, confira notas de corretagem, informes e o Demonstrativo de Renda Variável da Receita Federal.</p>
+<div class="tablewrap"><table><thead><tr><th>Mês</th><th>Vendas ações comuns</th><th>Resultado ações</th><th>Vendas FII</th><th>Resultado FII</th><th>Vendas day trade</th><th>Resultado day trade</th><th>IR comum</th><th>IRRF comum</th><th>IR day trade</th><th>IRRF day trade</th><th>Crédito IRRF comum</th><th>Crédito IRRF day trade</th><th>IRRF day trade expirado</th><th>Saldo prejuízo ações</th><th>Saldo prejuízo FII</th><th>Saldo prejuízo day trade</th><th>Total estimado</th></tr></thead><tbody id="tradeTaxRows"></tbody></table></div>
+<p class="muted" style="margin-top:8px">O controle compensa prejuízos por modalidade e em ordem cronológica. O IRRF comum é carregado para meses posteriores; o IRRF de day trade é controlado por ano-calendário e eventual saldo é sinalizado como expirado ao fim do ano. Ações comuns, FIIs e day trade têm saldos separados. O cálculo é auxiliar e simplificado: não contempla todas as situações fiscais, ajustes, regras especiais ou conferência documental. Para apuração oficial, confira notas de corretagem, informes e o Demonstrativo de Renda Variável da Receita Federal.</p>
 <h2 style="margin-top:22px">Histórico por operação</h2>
-<div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Operação</th><th>Modalidade</th><th>Quantidade</th><th>Preço</th><th>Taxas</th><th>Resultado da venda</th><th></th></tr></thead><tbody id="tradeRows"></tbody></table></div>
+<div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Operação</th><th>Modalidade</th><th>Corretora</th><th>Quantidade</th><th>Preço</th><th>Taxas</th><th>Resultado da venda</th><th></th></tr></thead><tbody id="tradeRows"></tbody></table></div>
 <p class="muted" id="tradeEmpty">Nenhuma operação registrada ainda.</p>
 </section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
@@ -189,9 +199,9 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 (()=>{
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
-let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null,taxLossOpening:{stock:0,fii:0,dayTrade:0}},editing=-1,quoteBusy=false;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null,taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0}}}catch(e){}
-if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));const d=new Date();db.taxOpeningDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}if(!db.taxLossOpening||typeof db.taxLossOpening!=='object')db.taxLossOpening={stock:0,fii:0,dayTrade:0};
+let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null,taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null,taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}}}catch(e){}
+if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));const d=new Date();db.taxOpeningDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}if(!db.taxLossOpening||typeof db.taxLossOpening!=='object')db.taxLossOpening={stock:0,fii:0,dayTrade:0};if(!db.taxIrrfOpening||typeof db.taxIrrfOpening!=='object')db.taxIrrfOpening={common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()};
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -375,7 +385,7 @@ if(remove){if(confirm('Excluir esta meta?')){db.goals=db.goals.filter(g=>g.id!==
 function calculateTradeLedger(){
 const balances=new Map();
 for(const a of (db.taxOpeningBalances||[])){const k=a.kind+'|'+String(a.ticker||'').toUpperCase();balances.set(k,{ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})}
-const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i,mode:t.mode==='daytrade'?'daytrade':'common'})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a._index-b._index);
+const rows=[...(db.trades||[])].map((t,i)=>({...t,_index:i,mode:t.mode==='daytrade'?'daytrade':'common',broker:String(t.broker||'').trim()})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a._index-b._index);
 const processedByIndex=new Map();
 const commonRows=rows.filter(t=>t.mode!=='daytrade'||t.side==='adjust');
 for(const t of commonRows){
@@ -383,31 +393,43 @@ const key=t.kind+'|'+String(t.ticker||'').toUpperCase();
 let p=balances.get(key)||{ticker:String(t.ticker||'').toUpperCase(),kind:t.kind,qty:0,avg:0};
 const qty=Number(t.qty)||0,price=Number(t.price)||0,fees=Number(t.fees)||0;
 let gain=null;
-if(t.side==='buy'){
-const oldCost=p.qty*p.avg,newCost=qty*price+fees;
-p.avg=(p.qty+qty)>0?(oldCost+newCost)/(p.qty+qty):0;p.qty+=qty;
-}else if(t.side==='sell'){
-const proceeds=qty*price-fees;gain=proceeds-qty*p.avg;p.qty-=qty;if(Math.abs(p.qty)<0.0000001)p.qty=0;
-}else if(t.side==='adjust'){p.qty=qty;p.avg=qty>0?price:0}
+if(t.side==='buy'){const oldCost=p.qty*p.avg,newCost=qty*price+fees;p.avg=(p.qty+qty)>0?(oldCost+newCost)/(p.qty+qty):0;p.qty+=qty}
+else if(t.side==='sell'){const proceeds=qty*price-fees;gain=proceeds-qty*p.avg;p.qty-=qty;if(Math.abs(p.qty)<0.0000001)p.qty=0}
+else if(t.side==='adjust'){p.qty=qty;p.avg=qty>0?price:0}
 balances.set(key,p);processedByIndex.set(t._index,{...t,gain,positionAfter:p.qty});
 }
 const dayGroups=new Map();
 for(const t of rows.filter(x=>x.mode==='daytrade'&&x.side!=='adjust')){
-const key=[t.date,t.kind,String(t.ticker||'').toUpperCase()].join('|');
+const key=[t.date,t.kind,String(t.ticker||'').toUpperCase(),t.broker].join('|');
 if(!dayGroups.has(key))dayGroups.set(key,[]);
 dayGroups.get(key).push(t);
 }
 for(const group of dayGroups.values()){
-const buys=group.filter(t=>t.side==='buy'),sells=group.filter(t=>t.side==='sell');
-const buyQty=buys.reduce((v,t)=>v+(Number(t.qty)||0),0),sellQty=sells.reduce((v,t)=>v+(Number(t.qty)||0),0);
-const matched=Math.abs(buyQty-sellQty)<0.0000001&&buyQty>0;
-const buyCost=buys.reduce((v,t)=>v+(Number(t.qty)||0)*(Number(t.price)||0)+(Number(t.fees)||0),0);
-const sellValue=sells.reduce((v,t)=>v+(Number(t.qty)||0)*(Number(t.price)||0)-(Number(t.fees)||0),0);
-const net=matched?sellValue-buyCost:null;
+const broker=group[0].broker,queues={buy:[],sell:[]};
 for(const t of group){
-const gain=matched&&t.side==='sell'?net*((Number(t.qty)||0)/sellQty):null;
-const current=balances.get(t.kind+'|'+String(t.ticker||'').toUpperCase());
-processedByIndex.set(t._index,{...t,gain,positionAfter:current?current.qty:0,dayTradeStatus:matched?'Fechado':'Pendente: compras e vendas do dia precisam ter quantidades iguais'});
+const qty=Number(t.qty)||0,price=Number(t.price)||0,fees=Number(t.fees)||0;
+let remaining=qty,matchedQty=0,gain=0,matchedSaleValue=0;
+const opposite=t.side==='buy'?'sell':'buy';
+while(remaining>0.0000001&&queues[opposite].length){
+const lot=queues[opposite][0],available=lot.remaining,match=Math.min(remaining,available);
+const buy=t.side==='buy'?t:lot.trade,sell=t.side==='sell'?t:lot.trade;
+const buyFee=(Number(buy.fees)||0)*(match/(Number(buy.qty)||1));
+const sellFee=(Number(sell.fees)||0)*(match/(Number(sell.qty)||1));
+const result=(Number(sell.price)-Number(buy.price))*match-buyFee-sellFee;
+gain+=result;matchedQty+=match;
+if(sell._index===t._index||sell._index===lot.trade._index)matchedSaleValue+=match*(Number(sell.price)||0);
+if(sell._index!==t._index){lot.gain=(lot.gain||0)+result;lot.matchedQty=(lot.matchedQty||0)+match;lot.matchedSaleValue=(lot.matchedSaleValue||0)+match*(Number(sell.price)||0)}
+remaining-=match;lot.remaining-=match;
+if(lot.remaining<=0.0000001)queues[opposite].shift();
+}
+if(remaining>0.0000001)queues[t.side].push({trade:t,remaining,gain:0,matchedQty:0,matchedSaleValue:0});
+const isSale=t.side==='sell';
+const rowGain=isSale?gain:null;
+processedByIndex.set(t._index,{...t,gain:rowGain,matchedQty,matchedSaleValue,positionAfter:(balances.get(t.kind+'|'+String(t.ticker||'').toUpperCase())||{}).qty||0,dayTradeStatus:!broker?'Pendente: corretora não informada':remaining>0.0000001?'Parcial ou pendente: quantidade sem par':matchedQty>0?'Fechado':'Pendente: aguardando operação oposta'});
+}
+for(const side of ['buy','sell'])for(const lot of queues[side]){
+const old=processedByIndex.get(lot.trade._index)||lot.trade;
+processedByIndex.set(lot.trade._index,{...old,dayTradeStatus:'Parcial ou pendente: quantidade sem par'});
 }
 }
 return {allBalances:[...balances.values()],balances:[...balances.values()].filter(p=>p.qty>0.0000001).sort((a,b)=>a.ticker.localeCompare(b.ticker)),rows:rows.map(t=>processedByIndex.get(t._index)||({...t,gain:null,positionAfter:0}))};
@@ -451,58 +473,60 @@ $('tradeMonthTax').textContent=fmt(monthTax?monthTax.due:0);
 $('tradeOpeningDate').textContent=db.taxOpeningDate?String(db.taxOpeningDate).split('-').reverse().join('/'):'—';
 $('tradePositions').innerHTML=ledger.balances.length?ledger.balances.map(p=>'<tr><td><b>'+esc(p.ticker)+'</b><br><span class="muted">'+esc(p.kind)+'</span></td><td>'+nfmt(p.qty)+'</td><td>'+fmt(p.avg)+'</td><td>'+fmt(p.qty*p.avg)+'</td></tr>').join(''):'<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nenhuma posição acompanhada.</td></tr>';
 const taxes=calculateMonthlyTaxes(ledger.rows);
-$('taxLossStockOpening').value=Number(db.taxLossOpening.stock)||0;$('taxLossFiiOpening').value=Number(db.taxLossOpening.fii)||0;$('taxLossDayTradeOpening').value=Number(db.taxLossOpening.dayTrade)||0;
-$('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+fmt(x.stockSales)+'</td><td>'+fmt(x.stockGain)+'</td><td>'+fmt(x.fiiSales)+'</td><td>'+fmt(x.fiiGain)+'</td><td>'+fmt(x.dayTradeSales)+'</td><td>'+fmt(x.dayTradeGain)+'</td><td>'+fmt(x.commonTax)+'</td><td>'+fmt(x.commonIrrf)+'</td><td>'+fmt(x.dayTradeTax)+'</td><td>'+fmt(x.dayTradeIrrf)+'</td><td>'+fmt(x.stockLossBalance)+'</td><td>'+fmt(x.fiiLossBalance)+'</td><td>'+fmt(x.dayTradeLossBalance)+'</td><td><b>'+fmt(x.due)+'</b></td></tr>').join(''):'<tr><td colspan="15" style="text-align:center;color:var(--muted)">O resumo aparecerá após a primeira venda.</td></tr>';
+$('taxLossStockOpening').value=Number(db.taxLossOpening.stock)||0;$('taxLossFiiOpening').value=Number(db.taxLossOpening.fii)||0;$('taxLossDayTradeOpening').value=Number(db.taxLossOpening.dayTrade)||0;$('taxIrrfCommonOpening').value=Number(db.taxIrrfOpening.common)||0;$('taxIrrfDayTradeOpening').value=Number(db.taxIrrfOpening.dayTrade)||0;$('taxIrrfDayTradeYear').value=Number(db.taxIrrfOpening.dayTradeYear)||new Date().getFullYear();
+$('tradeTaxRows').innerHTML=taxes.length?taxes.slice().reverse().map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+fmt(x.stockSales)+'</td><td>'+fmt(x.stockGain)+'</td><td>'+fmt(x.fiiSales)+'</td><td>'+fmt(x.fiiGain)+'</td><td>'+fmt(x.dayTradeSales)+'</td><td>'+fmt(x.dayTradeGain)+'</td><td>'+fmt(x.commonTax)+'</td><td>'+fmt(x.commonIrrf)+'</td><td>'+fmt(x.dayTradeTax)+'</td><td>'+fmt(x.dayTradeIrrf)+'</td><td>'+fmt(x.commonIrrfBalance)+'</td><td>'+fmt(x.dayTradeIrrfBalance)+'</td><td>'+fmt(x.dayTradeIrrfExpired)+'</td><td>'+fmt(x.stockLossBalance)+'</td><td>'+fmt(x.fiiLossBalance)+'</td><td>'+fmt(x.dayTradeLossBalance)+'</td><td><b>'+fmt(x.due)+'</b></td></tr>').join(''):'<tr><td colspan="18" style="text-align:center;color:var(--muted)">O resumo aparecerá após a primeira venda.</td></tr>';
 $('taxLossOpeningStatus').textContent='Saldos iniciais salvos: ações '+fmt(db.taxLossOpening.stock)+', FIIs '+fmt(db.taxLossOpening.fii)+' e day trade '+fmt(db.taxLossOpening.dayTrade)+'.';
 const pending=ledger.rows.filter(t=>t.mode==='daytrade'&&t.dayTradeStatus&&t.dayTradeStatus!=='Fechado');
-$('tradeFormStatus').textContent=pending.length?pending.length+' lançamento(s) de day trade pendente(s): confira se compra e venda do mesmo ticker, data e corretora foram registradas com quantidades iguais.':'Para day trade, registre compra e venda do mesmo ticker, na mesma data e na mesma corretora. O resultado só é calculado quando as quantidades de compra e venda do dia estiverem equilibradas.';
-$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+(t.mode==='daytrade'?'Day trade':'Comum')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?(t.gain===null?'<span class="negative">Pendente</span>':'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>'):'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
+$('tradeFormStatus').textContent=pending.length?pending.length+' lançamento(s) de day trade parcial(is) ou pendente(s). O IR estimado considera apenas quantidades efetivamente pareadas; confira corretora, data, ativo e sequência das operações.':'Day trade pareado por ordem cronológica, considerando data, ativo e corretora. Confira sempre as notas de corretagem.';
+$('tradeRows').innerHTML=ledger.rows.slice().reverse().map(t=>'<tr><td>'+esc(String(t.date).split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b><br><span class="muted">'+esc(t.kind)+'</span></td><td>'+(t.side==='buy'?'Compra':t.side==='sell'?'Venda':'Ajuste manual')+'</td><td>'+(t.mode==='daytrade'?'Day trade':'Comum')+'</td><td>'+esc(t.broker||'—')+'</td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(t.fees)+'</td><td>'+(t.side==='sell'?(t.gain===null?'<span class="negative">Pendente</span>':'<span class="'+(t.gain>=0?'positive':'negative')+'">'+fmt(t.gain)+'</span>'):'—')+'</td><td><button data-trade-delete="'+esc(t.id)+'">×</button></td></tr>').join('');
 $('tradeEmpty').hidden=ledger.rows.length>0;
 }
 function calculateMonthlyTaxes(rows){
-const months=new Map();
-const getMonth=m=>{if(!months.has(m))months.set(m,{month:m,stockSales:0,stockGain:0,fiiSales:0,fiiGain:0,dayTradeSales:0,dayTradeGain:0,pendingDayTrade:0});return months.get(m)};
+const months=new Map(),getMonth=m=>{if(!months.has(m))months.set(m,{month:m,stockSales:0,stockGain:0,fiiSales:0,fiiGain:0,dayTradeSales:0,dayTradeGain:0,pendingDayTrade:0});return months.get(m)};
 for(const t of rows.filter(x=>x.side==='sell')){
 const m=String(t.date).slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))continue;
-const x=getMonth(m),sale=(Number(t.qty)||0)*(Number(t.price)||0);
-if(t.mode==='daytrade'){
-x.dayTradeSales+=sale;
-if(t.gain===null||t.gain===undefined)x.pendingDayTrade++;
-else x.dayTradeGain+=Number(t.gain)||0;
-}else if(t.kind==='Ação'){x.stockSales+=sale;x.stockGain+=Number(t.gain)||0}
+const x=getMonth(m),sale=t.mode==='daytrade'?(Number(t.matchedSaleValue)||0):(Number(t.qty)||0)*(Number(t.price)||0);
+if(t.mode==='daytrade'){if((Number(t.matchedQty)||0)<(Number(t.qty)||0)-0.0000001||t.dayTradeStatus!=='Fechado')x.pendingDayTrade++;x.dayTradeSales+=sale;if(t.gain!==null&&t.gain!==undefined)x.dayTradeGain+=Number(t.gain)||0}
+else if(t.kind==='Ação'){x.stockSales+=sale;x.stockGain+=Number(t.gain)||0}
 else{x.fiiSales+=sale;x.fiiGain+=Number(t.gain)||0}
 }
 const dailyDayTrade=new Map();
-for(const t of rows.filter(x=>x.side==='sell'&&x.mode==='daytrade'&&x.gain!==null&&x.gain!==undefined)){
+for(const t of rows.filter(x=>x.side==='sell'&&x.mode==='daytrade'&&x.gain!==null&&x.gain!==undefined&&Number(x.matchedQty)>0)){
 const m=String(t.date).slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))continue;
-const key=[m,t.date,t.kind,String(t.ticker||'').toUpperCase()].join('|');
-dailyDayTrade.set(key,(dailyDayTrade.get(key)||0)+(Number(t.gain)||0));
+const key=[m,t.date,t.broker||''].join('|');dailyDayTrade.set(key,(dailyDayTrade.get(key)||0)+(Number(t.gain)||0));
 }
 const dayTradeIrrfByMonth=new Map();
 for(const [key,result] of dailyDayTrade){const month=key.split('|')[0];dayTradeIrrfByMonth.set(month,(dayTradeIrrfByMonth.get(month)||0)+Math.max(0,result)*0.01)}
-let stockLoss=Math.max(0,Number(db.taxLossOpening?.stock)||0);
-let fiiLoss=Math.max(0,Number(db.taxLossOpening?.fii)||0);
-let dayTradeLoss=Math.max(0,Number(db.taxLossOpening?.dayTrade)||0);
+let stockLoss=Math.max(0,Number(db.taxLossOpening?.stock)||0),fiiLoss=Math.max(0,Number(db.taxLossOpening?.fii)||0),dayTradeLoss=Math.max(0,Number(db.taxLossOpening?.dayTrade)||0);
+let commonIrrfBalance=Math.max(0,Number(db.taxIrrfOpening?.common)||0),dayTradeIrrfBalance=Math.max(0,Number(db.taxIrrfOpening?.dayTrade)||0);
+let dayTradeIrrfYear=Number(db.taxIrrfOpening?.dayTradeYear)||new Date().getFullYear();
 return [...months.values()].sort((a,b)=>a.month.localeCompare(b.month)).map(x=>{
+const year=Number(x.month.slice(0,4));let dayTradeIrrfExpired=0;
+if(year>dayTradeIrrfYear){dayTradeIrrfExpired=dayTradeIrrfBalance;dayTradeIrrfBalance=0;dayTradeIrrfYear=year}
 if(x.stockGain<0)stockLoss+=Math.abs(x.stockGain);
 let stockLossUsed=0,stockTaxBase=0;
 if(x.stockGain>0&&x.stockSales>20000){stockLossUsed=Math.min(stockLoss,x.stockGain);stockLoss-=stockLossUsed;stockTaxBase=Math.max(0,x.stockGain-stockLossUsed)}
 const stockTax=stockTaxBase*0.15;
 if(x.fiiGain<0)fiiLoss+=Math.abs(x.fiiGain);
-let fiiLossUsed=0;
-if(x.fiiGain>0){fiiLossUsed=Math.min(fiiLoss,x.fiiGain);fiiLoss-=fiiLossUsed}
+let fiiLossUsed=0;if(x.fiiGain>0){fiiLossUsed=Math.min(fiiLoss,x.fiiGain);fiiLoss-=fiiLossUsed}
 const fiiTaxBase=Math.max(0,x.fiiGain-fiiLossUsed),fiiTax=fiiTaxBase*0.20;
 if(x.dayTradeGain<0)dayTradeLoss+=Math.abs(x.dayTradeGain);
-let dayTradeLossUsed=0;
-if(x.dayTradeGain>0){dayTradeLossUsed=Math.min(dayTradeLoss,x.dayTradeGain);dayTradeLoss-=dayTradeLossUsed}
+let dayTradeLossUsed=0;if(x.dayTradeGain>0){dayTradeLossUsed=Math.min(dayTradeLoss,x.dayTradeGain);dayTradeLoss-=dayTradeLossUsed}
 const dayTradeTaxBase=Math.max(0,x.dayTradeGain-dayTradeLossUsed),dayTradeTax=dayTradeTaxBase*0.20;
-const commonTax=stockTax+fiiTax;
-const commonIrrfGross=(x.stockSales+x.fiiSales)*0.00005,commonIrrf=commonIrrfGross>1?commonIrrfGross:0;
-const dayTradeIrrf=dayTradeIrrfByMonth.get(x.month)||0;
-const due=Math.max(0,commonTax-commonIrrf)+Math.max(0,dayTradeTax-dayTradeIrrf);
-return {...x,stockLossUsed,fiiLossUsed,dayTradeLossUsed,stockLossBalance:stockLoss,fiiLossBalance:fiiLoss,dayTradeLossBalance:dayTradeLoss,stockTaxBase,fiiTaxBase,dayTradeTaxBase,commonTax,commonIrrf,dayTradeTax,dayTradeIrrf,tax:commonTax+dayTradeTax,irrf:commonIrrf+dayTradeIrrf,due};
+const commonTax=stockTax+fiiTax,commonIrrfGross=(x.stockSales+x.fiiSales)*0.00005,commonIrrf=commonIrrfGross>1?commonIrrfGross:0;
+commonIrrfBalance+=commonIrrf;const commonIrrfUsed=Math.min(commonIrrfBalance,commonTax);commonIrrfBalance-=commonIrrfUsed;
+const dayTradeIrrf=dayTradeIrrfByMonth.get(x.month)||0;dayTradeIrrfBalance+=dayTradeIrrf;
+const dayTradeIrrfUsed=Math.min(dayTradeIrrfBalance,dayTradeTax);dayTradeIrrfBalance-=dayTradeIrrfUsed;
+const due=Math.max(0,commonTax-commonIrrfUsed)+Math.max(0,dayTradeTax-dayTradeIrrfUsed);
+if(x.month.endsWith('-12')){dayTradeIrrfExpired+=dayTradeIrrfBalance;dayTradeIrrfBalance=0;dayTradeIrrfYear=year+1}
+return {...x,stockLossUsed,fiiLossUsed,dayTradeLossUsed,stockLossBalance:stockLoss,fiiLossBalance:fiiLoss,dayTradeLossBalance:dayTradeLoss,stockTaxBase,fiiTaxBase,dayTradeTaxBase,commonTax,commonIrrf,commonIrrfUsed,commonIrrfBalance,dayTradeTax,dayTradeIrrf,dayTradeIrrfUsed,dayTradeIrrfBalance,dayTradeIrrfExpired,tax:commonTax+dayTradeTax,irrf:commonIrrf+dayTradeIrrf,due};
 });
 }
+$('saveTaxIrrfOpening').onclick=()=>{
+const common=Number($('taxIrrfCommonOpening').value),dayTrade=Number($('taxIrrfDayTradeOpening').value),year=Number($('taxIrrfDayTradeYear').value);
+if([common,dayTrade,year].some(v=>!Number.isFinite(v))||common<0||dayTrade<0||!Number.isInteger(year)||year<2000||year>2100){alert('Confira os saldos e o ano do crédito de day trade.');return}
+db.taxIrrfOpening={common,dayTrade,dayTradeYear:year};persist();renderTrades();$('taxIrrfOpeningStatus').textContent='Saldos iniciais de IRRF salvos.';
+};
 $('saveTaxLossOpening').onclick=()=>{
 const stock=Number($('taxLossStockOpening').value),fii=Number($('taxLossFiiOpening').value),dayTrade=Number($('taxLossDayTradeOpening').value);
 if([stock,fii,dayTrade].some(v=>!Number.isFinite(v)||v<0)){alert('Informe saldos iguais ou maiores que zero.');return}
@@ -510,15 +534,15 @@ db.taxLossOpening={stock,fii,dayTrade};persist();renderTrades();$('taxLossOpenin
 };
 $('tradeDate').value=localDate();
 $('saveTrade').onclick=()=>{
-const date=$('tradeDate').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,mode=$('tradeMode').value,qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
-if(!date||!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0){alert('Confira data, ticker, quantidade, preço e taxas.');return}
+const date=$('tradeDate').value,ticker=$('tradeTicker').value.trim().toUpperCase(),kind=$('tradeKind').value,side=$('tradeSide').value,mode=$('tradeMode').value,broker=$('tradeBroker').value.trim(),qty=Number($('tradeQty').value),price=Number($('tradePrice').value),fees=Number($('tradeFees').value)||0;
+if(!date||!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0){alert('Confira data, ticker, quantidade, preço e taxas.');return}if(mode==='daytrade'&&!broker){alert('Informe a corretora para registrar day trade.');return}
 if(db.taxOpeningDate&&date<db.taxOpeningDate){alert('A data deve ser igual ou posterior ao saldo inicial ('+db.taxOpeningDate.split('-').reverse().join('/')+').');return}
-const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,ticker,kind,side,mode,qty,price,fees};
+const trade={id:'op-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date,ticker,kind,side,mode,broker,qty,price,fees};
 db.trades.push(trade);
 const check=calculateTradeLedger();
 const invalid=check.rows.find(x=>x.side==='sell'&&x.mode!=='daytrade'&&x.positionAfter< -0.0000001);
 if(invalid){db.trades.pop();alert('A venda ultrapassa a quantidade disponível no controle para '+ticker+'. Confira o saldo inicial e as compras registradas.');return}
-persist();syncAssetsFromTradeLedger();persist();$('tradeTicker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';render();if(isQuotedKind(kind))refreshQuotes(ticker);
+persist();syncAssetsFromTradeLedger();persist();$('tradeTicker').value='';$('tradeBroker').value='';$('tradeQty').value='';$('tradePrice').value='';$('tradeFees').value='0';render();if(isQuotedKind(kind))refreshQuotes(ticker);
 };
 $('tradeRows').addEventListener('click',e=>{
 const btn=e.target.closest('button[data-trade-delete]');if(!btn)return;
@@ -545,7 +569,7 @@ $('currentMonthlyIncome').textContent=fmt(currentAnnual/12);
 }
 ['monthlyInput','yearsInput','rateInput','yieldInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
-$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:x.assets.map(a=>({ticker:String(a.ticker||"").toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})),taxOpeningDate:x.taxOpeningDate||localDate(),taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0}};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:x.assets.map(a=>({ticker:String(a.ticker||"").toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})),taxOpeningDate:x.taxOpeningDate||localDate(),taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 reconcileAssetsWithTradeLedger();persist();render();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();else recordSnapshot();
