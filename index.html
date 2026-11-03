@@ -82,6 +82,25 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">DY estimado dos ativos pagadores</div><div class="v" id="incomeYield">0,00%</div></div>
 </div>
 <p class="muted">O total anual estimado considera a quantidade atual de cada ativo multiplicada pelo dividendo anual por unidade informado no cadastro. É uma projeção indicativa para os próximos 12 meses, não uma garantia de pagamento.</p>
+<section class="asset-group" id="officialEvents">
+<h2>Agenda de comunicados oficiais</h2>
+<p class="muted" style="margin-bottom:12px">Cadastro manual de eventos conferidos por você na publicação original. Esta versão não acessa, rastreia nem copia automaticamente sites de terceiros.</p>
+<div class="formgrid">
+<label class="field">Ticker<input id="eventTicker" maxlength="20" placeholder="Ex.: BBSE3"></label>
+<label class="field">Tipo de evento<select id="eventType"><option>Dividendo</option><option>JCP</option><option>Rendimento de FII</option><option>Outro comunicado</option></select></label>
+<label class="field">Data da publicação<input id="eventPublished" type="date"></label>
+<label class="field">Data-com (se informada)<input id="eventExDate" type="date"></label>
+<label class="field">Data prevista de pagamento<input id="eventPayDate" type="date"></label>
+<label class="field">Valor por ação/cota (R$)<input id="eventAmount" type="number" min="0" step="0.0001" placeholder="Opcional"></label>
+<label class="field full">Link HTTPS da publicação oficial<input id="eventSource" type="url" placeholder="https://..."></label>
+</div>
+<div class="actions"><button class="primary" id="saveOfficialEvent">Salvar comunicado conferido</button></div>
+<p class="muted" id="eventStatus" style="margin-top:8px" aria-live="polite">Confira ticker, datas e valor diretamente na fonte antes de salvar.</p>
+<h2 style="margin-top:18px">Eventos cadastrados</h2>
+<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Evento</th><th>Publicação</th><th>Data-com</th><th>Pagamento</th><th>Valor/un.</th><th>Fonte</th><th></th></tr></thead><tbody id="officialEventRows"></tbody></table></div>
+<p class="muted" id="officialEventsEmpty">Nenhum comunicado cadastrado.</p>
+<p class="muted" style="margin-top:10px">Os dados são registros manuais para organização pessoal, não confirmação de direito ao provento nem previsão garantida. Consulte a publicação original e o agente responsável antes de considerar qualquer informação.</p>
+</section>
 <h2 style="margin-top:20px">Dividendos recebidos por mês</h2>
 <div class="chartbox" id="incomeChart"><div class="history-empty">Os recebimentos aparecerão aqui quando forem registrados.</div></div>
 <h2 style="margin-top:20px">Dividendos estimados por ativo</h2>
@@ -233,8 +252,8 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 (()=> {
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
-let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null,taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}},editing=-1,quoteBusy=false;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null,taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}}}catch(e){}
+let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null,taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()},officialEvents:[]},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null,taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()},officialEvents:Array.isArray(x.officialEvents)?x.officialEvents:[]}}catch(e){}
 if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));const d=new Date();db.taxOpeningDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}if(!db.taxLossOpening||typeof db.taxLossOpening!=='object')db.taxLossOpening={stock:0,fii:0,dayTrade:0};if(!db.taxIrrfOpening||typeof db.taxIrrfOpening!=='object')db.taxIrrfOpening={common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()};
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -252,10 +271,29 @@ renderAssetGroup('assetRowsFiis',groupRows.FII,'FIIs');
 renderAssetGroup('assetRowsTreasury',groupRows.Tesouro,'Tesouro Direto');
 renderAssetGroup('assetRowsOther',groupRows.Outro,'outros');
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-renderIncomeDashboard();project();renderGoals();renderTrades();
+renderIncomeDashboard();renderOfficialEvents();project();renderGoals();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
 }
+function renderOfficialEvents(){
+const rows=Array.isArray(db.officialEvents)?db.officialEvents:[];
+$('officialEventRows').innerHTML=rows.slice().sort((a,b)=>String(b.published||'').localeCompare(String(a.published||''))).map((x,i)=>'<tr><td><b>'+esc(x.ticker)+'</b></td><td>'+esc(x.type)+'</td><td>'+esc(x.published||'—')+'</td><td>'+esc(x.exDate||'—')+'</td><td>'+esc(x.payDate||'—')+'</td><td>'+(x.amount!==''&&x.amount!==null&&x.amount!==undefined?fmt(x.amount):'—')+'</td><td><a href="'+esc(x.sourceUrl)+'" target="_blank" rel="noopener noreferrer">Abrir fonte</a></td><td><button data-event-delete="'+esc(x.id)+'">×</button></td></tr>').join('');
+$('officialEventsEmpty').hidden=rows.length>0;
+}
+$('eventPublished').value=localDate();
+$('saveOfficialEvent').onclick=()=>{
+const ticker=$('eventTicker').value.trim().toUpperCase(),type=$('eventType').value,published=$('eventPublished').value,exDate=$('eventExDate').value,payDate=$('eventPayDate').value,amountText=$('eventAmount').value,sourceUrl=$('eventSource').value.trim();
+let parsed;try{parsed=new URL(sourceUrl)}catch(e){}
+if(!ticker||!published||!parsed||parsed.protocol!=='https:'){alert('Informe o ticker, a data da publicação e um link HTTPS válido para a fonte original.');return}
+const amount=amountText===''?null:Number(amountText);
+if(amount!==null&&(!Number.isFinite(amount)||amount<0)){alert('Confira o valor informado.');return}
+db.officialEvents.push({id:'evt-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),ticker,type,published,exDate,payDate,amount,sourceUrl});
+persist();renderOfficialEvents();$('eventTicker').value='';$('eventExDate').value='';$('eventPayDate').value='';$('eventAmount').value='';$('eventSource').value='';$('eventStatus').textContent='Comunicado salvo localmente. Confira sempre a fonte original.'; 
+};
+$('officialEventRows').addEventListener('click',e=>{
+const btn=e.target.closest('button[data-event-delete]');if(!btn)return;
+const id=btn.getAttribute('data-event-delete');if(confirm('Excluir este registro de comunicado?')){db.officialEvents=(db.officialEvents||[]).filter(x=>String(x.id)!==String(id));persist();renderOfficialEvents()}
+});
 function renderIncomeDashboard(){
 const now=localDate(),month=now.slice(0,7),year=now.slice(0,4);
 const valid=db.income.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x.date))&&Number.isFinite(Number(x.value)));
@@ -606,7 +644,7 @@ $('currentMonthlyIncome').textContent=fmt(currentAnnual/12);
 }
 ['monthlyInput','yearsInput','rateInput','yieldInput'].forEach(id=>$(id).oninput=project);
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='backup-minha-carteira.json';a.click();URL.revokeObjectURL(url)};
-$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:x.assets.map(a=>({ticker:String(a.ticker||"").toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})),taxOpeningDate:x.taxOpeningDate||localDate(),taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
+$('import').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.assets)||!Array.isArray(x.income)||!Array.isArray(x.contrib))throw Error();db={assets:x.assets,income:x.income,contrib:x.contrib,history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:x.assets.map(a=>({ticker:String(a.ticker||"").toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})),taxOpeningDate:x.taxOpeningDate||localDate(),taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()},officialEvents:Array.isArray(x.officialEvents)?x.officialEvents:[]};persist();render();alert('Backup importado.');refreshQuotes()}catch(err){alert('Arquivo de backup inválido.')}e.target.value=''};
 reconcileAssetsWithTradeLedger();persist();render();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 if(db.assets.some(a=>isQuotedKind(a.kind)))refreshQuotes();else recordSnapshot();
