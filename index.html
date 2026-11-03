@@ -199,6 +199,32 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Operação</th><th>Modalidade</th><th>Corretora</th><th>Quantidade</th><th>Preço</th><th>Taxas</th><th>Resultado da venda</th><th></th></tr></thead><tbody id="tradeRows"></tbody></table></div>
 <p class="muted" id="tradeEmpty">Nenhuma operação registrada ainda.</p>
 </section>
+<section class="panel" id="privacyNotice">
+<h2>Aviso de Uso e Privacidade</h2>
+<p class="muted" style="margin-bottom:12px">Versão inicial para uso pessoal. Este aviso descreve o funcionamento identificado nesta versão do aplicativo; não substitui uma revisão jurídica.</p>
+<details>
+<summary style="cursor:pointer;color:var(--green);font-weight:700;padding:8px 0">Ler aviso completo</summary>
+<div style="line-height:1.65;font-size:13px">
+<h3>1. Finalidade e uso</h3>
+<p>O Minha Carteira é uma ferramenta pessoal para organizar registros de ativos, quantidades, preços médios, aportes, rendimentos, metas e estimativas. Não é uma corretora, não executa operações e não oferece recomendação individual de investimento, promessa de rentabilidade ou garantia de dividendos.</p>
+<h3>2. Dados registrados no aparelho</h3>
+<p>Os registros da carteira são armazenados no armazenamento local do navegador deste aparelho. O código atual não envia sua carteira completa, quantidades, preços médios, aportes, metas ou histórico para a consulta de cotação. Se você exportar um backup, o arquivo será salvo conforme as opções do navegador e deverá ser protegido por você.</p>
+<h3>3. Consulta de cotações</h3>
+<p>Para atualizar cotações, o aplicativo envia os tickers dos ativos e o tipo (ação ou FII) ao serviço Minha Carteira hospedado no Cloudflare Workers. Esse serviço consulta a BRAPI e devolve os resultados ao aplicativo. Portanto, os tickers consultados passam por serviços externos; não informe dados pessoais ou credenciais nesses campos. A disponibilidade, atualização e precisão das cotações dependem desses fornecedores e podem sofrer atrasos ou falhas.</p>
+<h3>4. Fontes e avisos sobre eventos</h3>
+<p>Eventuais avisos sobre resultados, comunicados, dividendos e distribuições deverão identificar a fonte pública original, a data da publicação e um link para conferência. O aplicativo deverá priorizar links para páginas oficiais de relações com investidores e administradores de fundos. Não reproduzirá conteúdo protegido nem fará coleta automatizada em páginas cujas regras não autorizem esse acesso. A informação pode estar incompleta ou atrasada; confira sempre a publicação original.</p>
+<h3>5. Compartilhamento e terceiros</h3>
+<p>Não há cadastro de usuário, conexão com corretora ou sincronização da carteira em nuvem nesta versão. A hospedagem do aplicativo e a consulta de cotações dependem de serviços de terceiros, incluindo GitHub Pages, Cloudflare Workers e BRAPI. As políticas e a disponibilidade desses serviços também se aplicam às respectivas operações.</p>
+<h3>6. Segurança e responsabilidade pelo backup</h3>
+<p>Mantenha o navegador e o aparelho protegidos e faça backups periódicos. Quem tiver acesso ao aparelho ou ao arquivo de backup poderá visualizar os dados nele armazenados. A limpeza dos dados do navegador pode apagar os registros locais; não faça isso sem ter um backup válido.</p>
+<h3>7. Limites das informações</h3>
+<p>Valores, indicadores, datas e estimativas são informativos e podem conter erros, atrasos ou omissões. O usuário deve conferir os dados nas fontes originais e não tomar decisões apenas com base nos avisos do aplicativo.</p>
+<h3>8. Escopo atual</h3>
+<p>Este projeto está destinado ao uso pessoal. Antes de disponibilizá-lo a outras pessoas, incluir publicidade, cobrar pelo acesso ou tratar dados de terceiros, será necessária uma nova avaliação de privacidade, segurança, licenças e requisitos legais.</p>
+<p class="muted">Este texto é um aviso inicial de transparência, não uma certificação de conformidade com a LGPD nem aconselhamento jurídico.</p>
+</div>
+</details>
+</section>
 <div class="panel"><h2>Backup dos dados</h2><p class="muted">Exporte uma cópia para guardar seus registros ou importe um backup anterior neste aparelho.</p><div class="actions"><button id="export">Exportar backup</button><label class="field" style="min-width:160px">Importar backup<input type="file" id="import" accept="application/json"></label></div></div>
 <footer>Os dados ficam neste aparelho/navegador. As cotações de ações e FIIs são consultadas pela BRAPI por meio de uma conexão segura. Não há conexão com corretora nem sincronização em nuvem. Faça backups periódicos. Preços, rentabilidade e dividendos podem variar.</footer>
 </main>
