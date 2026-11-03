@@ -56,6 +56,16 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <div class="asset-group"><h3>Outros</h3><div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRowsOther"></tbody></table></div></div>
 <p class="muted" id="emptyAssets">Nenhum ativo cadastrado.</p>
 </section>
+<section id="assetDetail" class="panel" hidden>
+<div class="actions" style="margin-top:0;margin-bottom:14px"><button id="detailBack">← Voltar à carteira</button></div>
+<div id="detailContent"></div>
+<div class="panel" style="margin-top:14px">
+<h2>Minhas observações</h2>
+<label class="field">Anotações pessoais<textarea id="assetObservation" rows="4" maxlength="1500" placeholder="Escreva suas observações sobre este ativo..."></textarea></label>
+<div class="actions"><button class="primary" id="saveObservation">Salvar observações</button></div>
+<p class="muted" id="observationStatus" style="margin-top:8px">As observações ficam salvas somente neste aparelho.</p>
+</div>
+</section>
 <section id="evolution" class="panel" hidden>
 <h2>Evolução patrimonial</h2>
 <p class="muted" style="margin-bottom:12px">O aplicativo registra uma posição por dia, depois de consultar as cotações. Se abrir novamente no mesmo dia, atualiza a posição daquele dia.</p>
@@ -246,7 +256,7 @@ let total=0,cost=0,annual=0;
 const groupRows={Ação:[],FII:[],Tesouro:[],Outro:[]};
 db.assets.forEach((a,i)=>{const kind=Object.prototype.hasOwnProperty.call(groupRows,a.kind)?a.kind:'Outro';groupRows[kind].push({asset:a,index:i})});
 const renderAssetGroup=(id,items,label)=>{
-$(id).innerHTML=items.map(({asset:a,index:i})=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><b>${esc(a.ticker)}</b></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhum ativo em ${label.toLowerCase()}.</td></tr>`;
+$(id).innerHTML=items.map(({asset:a,index:i})=>{let val=(Number(a.qty)||0)*(Number(a.price)||0),gain=val-(Number(a.qty)||0)*(Number(a.avg)||0);total+=val;cost+=(Number(a.qty)||0)*(Number(a.avg)||0);annual+=(Number(a.qty)||0)*(Number(a.dividend)||0);return `<tr><td><button data-detail="${i}" style="padding:3px 7px;text-decoration:underline;background:transparent;border:0;color:var(--green)">${esc(a.ticker)}</button></td><td>${nfmt(a.qty)}</td><td>${fmt(a.avg)}</td><td>${fmt(a.price)}</td><td>${fmt(val)}</td><td class="${gain>=0?'positive':'negative'}">${fmt(gain)}</td><td>${fmt((Number(a.qty)||0)*(Number(a.dividend)||0))}</td><td><button data-edit="${i}">Editar</button> <button data-del="${i}">×</button></td></tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--muted)">Nenhum ativo em ${label.toLowerCase()}.</td></tr>`;
 };
 renderAssetGroup('assetRowsStocks',groupRows.Ação,'ações');
 renderAssetGroup('assetRowsFiis',groupRows.FII,'FIIs');
@@ -384,11 +394,44 @@ if(isQuotedKind(kind))refreshQuotes(ticker);else $('quoteStatus').textContent='A
 };
 $('cancelEdit').onclick=clearAsset;
 $('refreshQuotes').onclick=()=>refreshQuotes();
-$('assets').onclick=e=>{let t=e.target;if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})}};
+let selectedAssetIndex=-1;
+function showAssetDetail(index){
+const a=db.assets[index];if(!a)return;selectedAssetIndex=index;
+const qty=Number(a.qty)||0,avg=Number(a.avg)||0,price=Number(a.price)||0,dividend=Number(a.dividend)||0;
+const invested=qty*avg,current=qty*price,result=current-invested,annual=qty*dividend,dy=current>0?annual/current*100:0;
+const received=db.income.filter(x=>String(x.ticker||'').toUpperCase()===String(a.ticker||'').toUpperCase()).reduce((sum,x)=>sum+(Number(x.value)||0),0);
+const relatedContrib=db.contrib.filter(x=>String(x.target||'').toUpperCase().includes(String(a.ticker||'').toUpperCase())).reduce((sum,x)=>sum+(Number(x.value)||0),0);
+$('detailContent').innerHTML=`<div class="actions" style="justify-content:space-between;align-items:center;margin-top:0"><div><h2 style="margin:0">${esc(a.ticker)}</h2><p class="muted">${esc(a.kind)} · dados cadastrados no aplicativo</p></div><button id="detailEdit">Editar cadastro</button></div>
+<div class="cards" style="margin-top:14px">
+<div class="card"><div class="k">Cotação atual</div><div class="v">${fmt(price)}</div></div>
+<div class="card"><div class="k">Valor atual da posição</div><div class="v">${fmt(current)}</div></div>
+<div class="card"><div class="k">Resultado não realizado</div><div class="v ${result>=0?'positive':'negative'}">${fmt(result)}</div></div>
+<div class="card"><div class="k">Total investido</div><div class="v">${fmt(invested)}</div></div>
+</div>
+<h2 style="margin-top:20px">Minha posição</h2><div class="cards">
+<div class="card"><div class="k">Quantidade</div><div class="v">${nfmt(qty)}</div></div>
+<div class="card"><div class="k">Preço médio</div><div class="v">${fmt(avg)}</div></div>
+<div class="card"><div class="k">Dividendo anual por unidade</div><div class="v">${fmt(dividend)}</div></div>
+<div class="card"><div class="k">Renda anual estimada</div><div class="v">${fmt(annual)}</div></div>
+<div class="card"><div class="k">Renda mensal estimada</div><div class="v">${fmt(annual/12)}</div></div>
+<div class="card"><div class="k">DY estimado informado</div><div class="v">${dy.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%</div></div>
+</div>
+<h2 style="margin-top:20px">Histórico registrado</h2><div class="cards">
+<div class="card"><div class="k">Dividendos recebidos registrados</div><div class="v">${fmt(received)}</div></div>
+<div class="card"><div class="k">Aportes identificados pelo ticker no destino</div><div class="v">${fmt(relatedContrib)}</div></div>
+</div>
+<p class="muted" style="margin-top:12px">Os indicadores são calculados com os dados que você cadastrou. O DY é uma estimativa baseada no dividendo anual informado e na cotação atual; não representa promessa de rendimento. Informações externas da empresa ainda não são carregadas nesta tela.</p>`;
+$('assetObservation').value=a.observation||'';
+$('assets').hidden=true;$('assetDetail').hidden=false;
+}
+$('detailBack').onclick=()=>{$('assetDetail').hidden=true;$('assets').hidden=false};
+$('detailEdit').onclick=()=>{const i=selectedAssetIndex;$('assetDetail').hidden=true;$('assets').hidden=false;editing=i;const a=db.assets[i];$('kind').value=a.kind;for(const k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})};
+$('saveObservation').onclick=()=>{if(selectedAssetIndex<0||!db.assets[selectedAssetIndex])return;db.assets[selectedAssetIndex].observation=$('assetObservation').value.trim();persist();$('observationStatus').textContent='Observações salvas neste aparelho.'};
+$('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.dataset.detail!==undefined){showAssetDetail(Number(t.dataset.detail));return}if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})}};
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','evolution','income','contrib','projection','goals','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','assetDetail','evolution','income','contrib','projection','goals','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
 function renderGoals(){
 const goals=Array.isArray(db.goals)?db.goals:[];
 const active=goals.filter(g=>g.status!=='completed');
