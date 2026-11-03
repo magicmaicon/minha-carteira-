@@ -383,7 +383,7 @@ finally{quoteBusy=false;$('refreshQuotes').disabled=false}
 $('saveAsset').onclick=()=>{
 let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?0:+$('price').value,dividend=$('dividend').value.trim()===''?0:+$('dividend').value;
 if(!ticker||[qty,avg,price,dividend].some(x=>!Number.isFinite(x)||x<0)){alert('Informe o ativo e confira os valores.');return}
-let a={ticker,kind,qty,avg,price,dividend};
+let a={ticker,kind,qty,avg,price,dividend,observation:editing>=0?(db.assets[editing]?.observation||''):''};
 const oldAsset=editing>=0?{...db.assets[editing]}:null;
 const existingIndex=editing<0?db.assets.findIndex(x=>x.ticker===ticker&&x.kind===kind):-1;
 if(oldAsset&&(oldAsset.ticker!==ticker||oldAsset.kind!==kind))addManualAdjustment(oldAsset.ticker,oldAsset.kind,0,0);
