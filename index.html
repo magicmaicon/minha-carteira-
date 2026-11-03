@@ -21,7 +21,7 @@ h2{font-size:16px;margin:0 0 12px}.formgrid{display:grid;grid-template-columns:r
 .full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}td,th{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}.positive{color:var(--green)}.negative{color:var(--red)}section[hidden]{display:none}
 footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.chartbox{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:10px;overflow:hidden}.chartbox svg{display:block;width:100%;height:auto}.history-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}.asset-group{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:11px;margin:10px 0}.asset-group h3{font-size:14px;margin:0 0 8px;color:var(--green)}.asset-group table{min-width:680px}
 @media(min-width:700px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.v{font-size:24px}}
-</style>
+#trades{display:none!important}</style>
 </head>
 <body>
 
@@ -34,7 +34,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button><button data-tab="goals">Minhas Metas</button><button data-tab="trades">Vendas e IR</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button><button data-tab="goals">Minhas Metas</button>
 </nav>
 <section id="assets" class="panel">
 <h2>Adicionar / atualizar ativo</h2>
