@@ -144,22 +144,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:18px">FIIs</h2>
 <div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Total recebido</th></tr></thead><tbody id="receivedFiis"></tbody></table></div>
 <p class="muted" id="receivedUnclassified"></p>
-<h2 style="margin-top:24px">Cadastrar provento anunciado</h2>
-<p class="muted">Preencha os dados divulgados pela empresa ou administradora. A quantidade elegível será calculada pelo histórico de operações na data-com, quando houver saldo inicial compatível.</p>
-<div class="formgrid">
-<label class="field">Ativo<select id="eventTicker"><option value="">Selecione um ativo</option></select></label>
-<label class="field">Tipo<select id="eventKind"><option>Dividendo</option><option>JCP</option><option>Rendimento FII</option><option>Outro</option></select></label>
-<label class="field">Valor por ação/cota (R$)<input id="eventUnitValue" type="number" min="0" step="0.0001"></label>
-<label class="field">Data-com<input id="eventRecordDate" type="date"></label>
-<label class="field">Data de pagamento<input id="eventPaymentDate" type="date"></label>
-</div>
-<div class="actions"><button class="primary" id="saveDividendEvent">Salvar provento</button></div>
-<p class="muted" id="eventStatus" style="margin-top:8px" aria-live="polite">O cadastro é manual. Nenhuma fonte externa será consultada.</p>
-<h2 style="margin-top:20px">Calendário de proventos</h2>
-<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Tipo</th><th>Data-com</th><th>Pagamento</th><th>Qtd. elegível</th><th>Por unidade</th><th>Previsto</th><th>Status</th><th></th></tr></thead><tbody id="dividendEventRows"></tbody></table></div>
-<p class="muted" id="dividendEventTotal"></p>
-<h2 style="margin-top:20px">Registrar rendimento recebido</h2><p class="muted">Confirme o pagamento para que ele entre nos totais de recebidos. O provento anunciado não é considerado recebido automaticamente.</p>
-<div class="formgrid">
+<h2 style="margin-top:24px">Registrar rendimento recebido</h2><div class="formgrid">
 <label class="field">Ativo<input id="incomeTicker" placeholder="Ex.: BBSE3"></label><label class="field">Data<input id="incomeDate" type="date"></label><label class="field">Valor recebido (R$)<input id="incomeValue" type="number" min="0" step="0.01"></label>
 </div><div class="actions"><button class="primary" id="saveIncome">Registrar</button></div>
 <h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Horário</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
@@ -262,8 +247,8 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 (()=> {
 const $=id=>document.getElementById(id), fmt=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:4}), key='minha_carteira_android_v1';
 const QUOTE_API='https://minha-carteira-api.magicmaicon.workers.dev/quote';
-let db={assets:[],income:[],dividendEvents:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null,taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}},editing=-1,quoteBusy=false;
-try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],dividendEvents:Array.isArray(x.dividendEvents)?x.dividendEvents:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null,taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}}}catch(e){}
+let db={assets:[],income:[],contrib:[],history:[],goals:[],trades:[],taxOpeningBalances:null,taxOpeningDate:null,taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}},editing=-1,quoteBusy=false;
+try{const x=JSON.parse(localStorage.getItem(key)||'null');if(x&&Array.isArray(x.assets))db={assets:x.assets,income:Array.isArray(x.income)?x.income:[],contrib:Array.isArray(x.contrib)?x.contrib:[],history:Array.isArray(x.history)?x.history:[],goals:Array.isArray(x.goals)?x.goals:[],trades:Array.isArray(x.trades)?x.trades:[],taxOpeningBalances:Array.isArray(x.taxOpeningBalances)?x.taxOpeningBalances:null,taxOpeningDate:x.taxOpeningDate||null,taxLossOpening:x.taxLossOpening&&typeof x.taxLossOpening==='object'?x.taxLossOpening:{stock:0,fii:0,dayTrade:0},taxIrrfOpening:x.taxIrrfOpening&&typeof x.taxIrrfOpening==='object'?x.taxIrrfOpening:{common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()}}}catch(e){}
 const knownStockSectors={
 BBSE3:'Financeiro',BBAS3:'Financeiro',BBDC3:'Financeiro',ITSA4:'Financeiro',CXSE3:'Financeiro',
 PETR4:'Petróleo e gás',RANI3:'Materiais básicos',KLBN4:'Materiais básicos',VALE3:'Materiais básicos',
@@ -277,7 +262,6 @@ TRXF11:'Renda urbana',VGHF11:'Multiestratégia'
 };
 db.assets.forEach(a=>{if(a.kind==='Ação'){const ticker=String(a.ticker||'').toUpperCase();if(knownStockSectors[ticker])a.sector=knownStockSectors[ticker];}});
 if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));const d=new Date();db.taxOpeningDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}if(!db.taxLossOpening||typeof db.taxLossOpening!=='object')db.taxLossOpening={stock:0,fii:0,dayTrade:0};if(!db.taxIrrfOpening||typeof db.taxIrrfOpening!=='object')db.taxIrrfOpening={common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()};
-if(!Array.isArray(db.dividendEvents))db.dividendEvents=[];
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -318,7 +302,7 @@ const groupSummary=[['stocks',groupRows.Ação],['fiis',groupRows.FII],['treasur
 for(const [key,items] of groupSummary){const count=items.length;const value=items.reduce((sum,item)=>sum+(Number(item.asset.qty)||0)*(Number(item.asset.price)||0),0);const invested=items.reduce((sum,item)=>sum+(Number(item.asset.qty)||0)*(Number(item.asset.avg)||0),0);const gain=value-invested;const pct=invested?100*gain/invested:0;const el=$('summary-'+key);el.innerHTML='<span class="group-metric"><small>Ativos</small><strong>'+count+' '+(count===1?'ativo':'ativos')+'</strong></span><span class="group-metric"><small>Valor total</small><strong>'+fmt(value)+'</strong></span><span class="group-metric"><small>Variação</small><strong class="'+(gain>=0?'positive':'negative')+'">'+(gain>=0?'+':'')+fmt(gain)+'</strong></span><span class="group-metric"><small>Rentabilidade</small><strong class="'+(pct>=0?'positive':'negative')+'">'+(pct>=0?'+':'')+pct.toFixed(2).replace('.',',')+'%</strong></span>';}
 renderCategoryChart(groupRows);
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-renderIncomeDashboard();renderDividendEvents();project();renderTrades();
+renderIncomeDashboard();project();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderPurchaseHistory();renderHistory();renderPortfolioCharts();project();
 }
@@ -551,38 +535,6 @@ $('detailBack').onclick=()=>{$('assetDetail').hidden=true;$('assets').hidden=fal
 $('detailContent').onclick=e=>{if(!e.target.closest('#detailEdit'))return;const i=selectedAssetIndex;$('assetDetail').hidden=true;$('assets').hidden=false;editing=i;const a=db.assets[i];if(!a)return;$('kind').value=a.kind;for(const k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})};
 $('saveObservation').onclick=()=>{if(selectedAssetIndex<0||!db.assets[selectedAssetIndex])return;db.assets[selectedAssetIndex].observation=$('assetObservation').value.trim();persist();$('observationStatus').textContent='Observações salvas neste aparelho.'};
 $('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.dataset.detail!==undefined){showAssetDetail(Number(t.dataset.detail));return}if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('sector').value=a.sector||'';$('saveAsset').textContent='Salvar lançamento';openAssetForm()}};
-function eligibleQuantityAt(ticker,kind,recordDate){
-const key=kind+'|'+ticker.toUpperCase();
-const opening=(db.taxOpeningBalances||[]).find(x=>x.kind===kind&&String(x.ticker||'').toUpperCase()===ticker.toUpperCase());
-if(!opening||!db.taxOpeningDate||recordDate<db.taxOpeningDate)return null;
-let qty=Number(opening.qty)||0;
-const rows=(db.trades||[]).filter(t=>t.kind===kind&&String(t.ticker||'').toUpperCase()===ticker.toUpperCase()&&String(t.date)<=recordDate&&String(t.date)>=db.taxOpeningDate).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-for(const t of rows){const q=Number(t.qty)||0;if(t.side==='buy')qty+=q;else if(t.side==='sell'||t.side==='adjust')qty=t.side==='sell'?qty-q:q;}
-return Math.max(0,qty);
-}
-function renderDividendEvents(){
-const select=$('eventTicker'),previous=select.value;
-select.innerHTML='<option value="">Selecione um ativo</option>'+db.assets.map(a=>'<option value="'+esc(a.kind+'|'+String(a.ticker).toUpperCase())+'">'+esc(a.ticker)+' ('+esc(a.kind)+')</option>').join('');
-if([...select.options].some(o=>o.value===previous))select.value=previous;
-const rows=[...(db.dividendEvents||[])].map((e,i)=>({...e,_index:i})).sort((a,b)=>String(a.paymentDate).localeCompare(String(b.paymentDate)));
-$('dividendEventRows').innerHTML=rows.map(e=>{const total=(Number(e.eligibleQty)||0)*(Number(e.unitValue)||0),status=e.status==='received'?'Recebido':(e.paymentDate<localDate()?'Pagamento vencido':'Anunciado');return '<tr><td><b>'+esc(e.ticker)+'</b></td><td>'+esc(e.kind)+'</td><td>'+esc(e.recordDate.split('-').reverse().join('/'))+'</td><td>'+esc(e.paymentDate.split('-').reverse().join('/'))+'</td><td>'+nfmt(e.eligibleQty)+'</td><td>'+fmt(e.unitValue)+'</td><td><b>'+fmt(total)+'</b></td><td>'+status+'</td><td><button data-event-received="'+e._index+'" +(e.status==='received'?'disabled':'')+>+(e.status==='received'?'Recebido':'Confirmar')+</button> <button data-event-delete="'+e._index+'">×</button></td></tr>'}).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted)">Nenhum provento cadastrado.</td></tr>';
-const expected=rows.filter(e=>e.status!=='received').reduce((sum,e)=>sum+(Number(e.eligibleQty)||0)*(Number(e.unitValue)||0),0);
-$('dividendEventTotal').textContent='Total previsto dos proventos ainda não confirmados: '+fmt(expected)+'.';
-}
-$('saveDividendEvent').onclick=()=>{
-const selected=$('eventTicker').value.split('|'),ticker=selected[1]||'',kind=selected[0]||'',eventKind=$('eventKind').value,unitValue=Number($('eventUnitValue').value),recordDate=$('eventRecordDate').value,paymentDate=$('eventPaymentDate').value;
-if(!ticker||!kind||!recordDate||!paymentDate||!(unitValue>0)||paymentDate<recordDate){alert('Confira ativo, valor e datas. A data de pagamento deve ser igual ou posterior à data-com.');return}
-const eligibleQty=eligibleQuantityAt(ticker,kind,recordDate);
-if(eligibleQty===null){alert('Não há saldo inicial compatível para calcular a quantidade na data-com. Confira o histórico de operações e a data do saldo inicial.');return}
-if((db.dividendEvents||[]).some(e=>e.ticker===ticker&&e.kind===eventKind&&e.recordDate===recordDate&&e.paymentDate===paymentDate)){alert('Esse provento já está cadastrado.');return}
-db.dividendEvents.push({id:'provento-'+Date.now(),ticker,assetKind:kind,kind:eventKind,unitValue,recordDate,paymentDate,eligibleQty,status:'announced',receivedValue:null,receivedDate:null});
-persist();$('eventUnitValue').value='';$('eventRecordDate').value='';$('eventPaymentDate').value='';render();$('eventStatus').textContent='Provento cadastrado. Valor previsto: '+fmt(eligibleQty*unitValue)+'.';
-};
-$('dividendEventRows').addEventListener('click',e=>{
-const confirmBtn=e.target.closest('[data-event-received]'),deleteBtn=e.target.closest('[data-event-delete]');
-if(confirmBtn){const i=Number(confirmBtn.dataset.eventReceived),event=db.dividendEvents[i];if(!event||event.status==='received')return;const value=Number(prompt('Informe o valor efetivamente recebido (R$):',String((Number(event.eligibleQty)||0)*(Number(event.unitValue)||0)).replace('.',',' ).replace(',','.')));if(!(value>0)||!Number.isFinite(value)){alert('Valor recebido inválido.');return}const receivedDate=prompt('Informe a data do recebimento (AAAA-MM-DD):',event.paymentDate);if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(receivedDate||''))){alert('Data inválida.');return}event.status='received';event.receivedValue=value;event.receivedDate=receivedDate;db.income.push({ticker:event.ticker,date:receivedDate,value,sourceEventId:event.id});persist();render();return}
-if(deleteBtn){const i=Number(deleteBtn.dataset.eventDelete);if(!db.dividendEvents[i])return;if(confirm('Excluir este provento cadastrado? Os recebimentos já registrados não serão apagados.')){db.dividendEvents.splice(i,1);persist();render()}}
-});
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
