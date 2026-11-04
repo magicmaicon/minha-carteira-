@@ -34,7 +34,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button><button data-tab="goals">Minhas Metas</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button>
 </nav>
 <section id="assets" class="panel">
 <h2>Adicionar / atualizar ativo</h2>
@@ -146,25 +146,6 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </div>
 <p class="muted" style="margin-top:12px">A simulação considera aportes mensais e crescimento composto da carteira. A renda futura é calculada aplicando o DY informado sobre o patrimônio projetado. Valores ilustrativos: dividendos, cotações e rentabilidade variam e não são garantidos. O crescimento anual informado deve representar a valorização total da carteira, com reinvestimento dos rendimentos.</p>
 </section>
-<section id="goals" class="panel" hidden>
-<h2>Minhas Metas</h2>
-<p class="muted" style="margin-bottom:12px">Acompanhe até 3 metas ativas ao mesmo tempo. Quando concluir uma, uma vaga será liberada para cadastrar outra.</p>
-<div class="cards">
- <div class="card"><div class="k">Metas ativas</div><div class="v" id="goalsActiveCount">0 de 3</div></div>
- <div class="card"><div class="k">Metas concluídas</div><div class="v" id="goalsCompletedCount">0</div></div>
-</div>
-<h2 style="margin-top:20px">Cadastrar nova meta</h2>
-<div class="formgrid">
- <label class="field">Nome da meta<input id="goalName" maxlength="60" placeholder="Ex.: Reserva de emergência"></label>
- <label class="field">Valor desejado (R$)<input id="goalTarget" type="number" min="1" step="0.01" placeholder="Ex.: 2000"></label>
-</div>
-<div class="actions"><button class="primary" id="saveGoal">Adicionar meta</button></div>
-<p class="muted" id="goalFormStatus" style="margin-top:8px" aria-live="polite">Você pode cadastrar até 3 metas ativas.</p>
-<h2 style="margin-top:22px">Metas em andamento</h2>
-<div id="activeGoalsList"></div>
-<h2 style="margin-top:22px">Metas concluídas</h2>
-<div id="completedGoalsList"></div>
-</section>
 <section id="trades" class="panel" hidden>
 <h2>Controle de operações e imposto estimado</h2>
 <p class="muted">Este controle acompanha compras, vendas, preço médio e resultados. As operações comuns atualizam a posição de longo prazo em Ativos. Day trade é apurado separadamente e não altera essa posição. Confira os lançamentos com as notas de corretagem; os cálculos são estimativas auxiliares.</p>
@@ -259,7 +240,7 @@ const groupSummary=[['stocks',groupRows.Ação],['fiis',groupRows.FII],['treasur
 for(const [key,items] of groupSummary){const count=items.length;const value=items.reduce((sum,item)=>sum+(Number(item.asset.qty)||0)*(Number(item.asset.price)||0),0);const invested=items.reduce((sum,item)=>sum+(Number(item.asset.qty)||0)*(Number(item.asset.avg)||0),0);const gain=value-invested;const pct=invested?100*gain/invested:0;const el=$('summary-'+key);el.innerHTML='<span class="group-metric"><small>Ativos</small><strong>'+count+' '+(count===1?'ativo':'ativos')+'</strong></span><span class="group-metric"><small>Valor total</small><strong>'+fmt(value)+'</strong></span><span class="group-metric"><small>Variação</small><strong class="'+(gain>=0?'positive':'negative')+'">'+(gain>=0?'+':'')+fmt(gain)+'</strong></span><span class="group-metric"><small>Rentabilidade</small><strong class="'+(pct>=0?'positive':'negative')+'">'+(pct>=0?'+':'')+pct.toFixed(2).replace('.',',')+'%</strong></span>';}
 renderCategoryChart(groupRows);
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
-renderIncomeDashboard();project();renderGoals();renderTrades();
+renderIncomeDashboard();project();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
 $('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
 }
@@ -427,43 +408,7 @@ $('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.datas
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','assetDetail','evolution','income','contrib','projection','goals','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
-function renderGoals(){
-const goals=Array.isArray(db.goals)?db.goals:[];
-const active=goals.filter(g=>g.status!=='completed');
-const completed=goals.filter(g=>g.status==='completed').slice().reverse();
-$('goalsActiveCount').textContent=active.length+' de 3';
-$('goalsCompletedCount').textContent=String(completed.length);
-$('saveGoal').disabled=active.length>=3;
-$('goalFormStatus').textContent=active.length>=3?'Você já tem 3 metas ativas. Conclua uma para liberar uma vaga.':'Você pode cadastrar mais '+(3-active.length)+' meta(s) ativa(s).';
-$('activeGoalsList').innerHTML=active.length?active.map(g=>{
-const target=Math.max(0,Number(g.target)||0),current=Math.max(0,Number(g.current)||0),pct=target?Math.min(100,100*current/target):0;
-return '<div class="card" style="margin-top:9px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><b>'+esc(g.name)+'</b><div class="muted" style="margin-top:4px">Meta: '+fmt(target)+'</div></div><b>'+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%</b></div><div style="height:9px;background:#0c1914;border-radius:10px;overflow:hidden;margin:12px 0"><div style="height:100%;width:'+pct+'%;background:var(--green);border-radius:10px"></div></div><div class="muted">Valor acumulado: '+fmt(current)+' · Faltam: '+fmt(Math.max(0,target-current))+'</div><div class="formgrid" style="margin-top:10px"><label class="field">Atualizar valor acumulado (R$)<input data-goal-current="'+esc(g.id)+'" type="number" min="0" step="0.01" value="'+current+'"></label></div><div class="actions"><button class="primary" data-goal-complete="'+esc(g.id)+'">Marcar como concluída</button><button data-goal-delete="'+esc(g.id)+'">Excluir</button></div></div>';
-}).join(''):'<div class="history-empty">Nenhuma meta ativa. Cadastre sua primeira meta acima.</div>';
-$('completedGoalsList').innerHTML=completed.length?completed.map(g=>'<div class="card" style="margin-top:9px"><b>'+esc(g.name)+'</b><div class="muted" style="margin-top:4px">Objetivo: '+fmt(g.target)+' · Concluída em: '+esc(g.completedAt||'')+'</div><div class="positive" style="margin-top:7px;font-weight:700">Meta concluída</div></div>').join(''):'<div class="history-empty">Suas metas concluídas aparecerão aqui.</div>';
-}
-$('saveGoal').onclick=()=>{
-const name=$('goalName').value.trim(),target=Number($('goalTarget').value);
-const active=db.goals.filter(g=>g.status!=='completed').length;
-if(!name||!Number.isFinite(target)||target<=0){alert('Informe o nome da meta e um valor desejado maior que zero.');return}
-if(active>=3){alert('Você já tem 3 metas ativas. Conclua uma para cadastrar outra.');return}
-db.goals.push({id:'goal-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),name,target,current:0,status:'active',createdAt:localDate()});
-persist();$('goalName').value='';$('goalTarget').value='';render();
-};
-$('goals').addEventListener('change',e=>{
-const id=e.target.dataset.goalCurrent;if(!id)return;
-const goal=db.goals.find(g=>g.id===id);if(!goal)return;
-const value=Number(e.target.value);
-if(!Number.isFinite(value)||value<0){alert('Informe um valor igual ou maior que zero.');renderGoals();return}
-goal.current=value;
-if(value>=Number(goal.target)){goal.current=Number(goal.target);goal.status='completed';goal.completedAt=localDate();alert('Parabéns! Meta concluída. Uma vaga foi liberada para uma nova meta.')}
-persist();renderGoals();
-});
-$('goals').addEventListener('click',e=>{
-const complete=e.target.dataset.goalComplete,remove=e.target.dataset.goalDelete;
-if(complete){const goal=db.goals.find(g=>g.id===complete);if(goal){goal.current=Number(goal.target)||0;goal.status='completed';goal.completedAt=localDate();persist();renderGoals()}}
-if(remove){if(confirm('Excluir esta meta?')){db.goals=db.goals.filter(g=>g.id!==remove);persist();renderGoals()}}
-});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','assetDetail','evolution','income','contrib','projection','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
 function calculateTradeLedger(){
 const balances=new Map();
 for(const a of (db.taxOpeningBalances||[])){const k=a.kind+'|'+String(a.ticker||'').toUpperCase();balances.set(k,{ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})}
