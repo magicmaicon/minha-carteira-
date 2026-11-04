@@ -325,7 +325,12 @@ $('historyChart').innerHTML=`<svg viewBox="0 0 600 220" role="img" aria-label="C
 $('historyRows').innerHTML=[...rows].reverse().slice(0,30).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${fmt(x.total)}</td><td>${fmt(x.invested)}</td><td class="${Number(x.result)>=0?'positive':'negative'}">${fmt(x.result)}</td></tr>`).join('');
 $('historyNote').textContent=rows.length?`${rows.length} registro(s) diário(s). O gráfico compara o patrimônio com o custo dos ativos registrados em cada dia. O histórico começa na data em que o registro foi ativado; os dias anteriores não são reconstruídos. Os dados estão incluídos no backup.`:'Os registros são armazenados neste aparelho e incluídos no backup.';
 }
-function openAssetForm(){ $('assetFormModal').hidden=false; $('ticker').focus(); }\nfunction closeAssetForm(){ $('assetFormModal').hidden=true; }\n$('openAssetForm').onclick=()=>{clearAsset();openAssetForm()};\n$('closeAssetForm').onclick=closeAssetForm;\n$('assetFormModal').addEventListener('click',e=>{if(e.target.id==='assetFormModal')closeAssetForm()});\nfunction clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
+function openAssetForm(){ $('assetFormModal').hidden=false; $('ticker').focus(); }
+function closeAssetForm(){ $('assetFormModal').hidden=true; }
+$('openAssetForm').onclick=()=>{clearAsset();openAssetForm()};
+$('closeAssetForm').onclick=closeAssetForm;
+$('assetFormModal').addEventListener('click',e=>{if(e.target.id==='assetFormModal')closeAssetForm()});
+function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
 function isQuotedKind(kind){return kind==='Ação'||kind==='FII'}
 async function refreshQuotes(onlyTicker=null){
 if(quoteBusy){$('quoteStatus').textContent='Já existe uma atualização de cotações em andamento.';return}
