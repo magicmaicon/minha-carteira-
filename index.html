@@ -243,7 +243,7 @@ legend.innerHTML=rows.filter(row=>row.value>0).map(row=>'<div class="category-le
 }
 function renderPurchaseHistory(){
 const query=String($('purchaseSearch').value||'').trim().toLocaleUpperCase();
-const purchases=calculateTradeLedger().rows.filter(t=>t.side==='buy'&&t.mode!=='daytrade'&&t.side!=='adjust'&&String(t.ticker||'').toLocaleUpperCase().includes(query)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+const purchases=calculateTradeLedger().rows.filter(t=>t.side==='buy'&&String(t.ticker||'').toLocaleUpperCase().includes(query)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 $('purchaseRows').innerHTML=purchases.length?purchases.map(t=>{const fees=Number(t.fees)||0,total=(Number(t.qty)||0)*(Number(t.price)||0)+fees;return '<tr><td>'+esc(String(t.date||'').split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b></td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(fees)+'</td><td><b>'+fmt(total)+'</b></td></tr>'}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">'+(query?'Nenhuma compra encontrada para essa pesquisa.':'Nenhuma compra registrada no histórico de operações.')+'</td></tr>';
 const total=purchases.reduce((sum,t)=>sum+(Number(t.qty)||0)*(Number(t.price)||0)+(Number(t.fees)||0),0);
 $('purchaseSearchTotal').textContent=purchases.length?purchases.length+' compra(s) encontrada(s) • Total pago: '+fmt(total):'';
