@@ -161,6 +161,13 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <div class="card"><div class="k">Renda mensal estimada hoje</div><div class="v" id="currentMonthlyIncome">R$ 0,00</div></div>
 </div>
 <p class="muted" style="margin-top:12px">A simulação considera aportes mensais e crescimento composto da carteira. A renda futura é calculada aplicando o DY informado sobre o patrimônio projetado. Valores ilustrativos: dividendos, cotações e rentabilidade variam e não são garantidos. O crescimento anual informado deve representar a valorização total da carteira, com reinvestimento dos rendimentos.</p>
+<h2 style="margin-top:24px">Evolução dos dividendos recebidos</h2>
+<p class="muted" style="margin-bottom:12px">Acompanhe os valores que você registrou no painel Dividendos, agrupados por ano e por mês. Os gráficos são atualizados automaticamente quando um recebimento é registrado.</p>
+<h2 style="margin-top:14px">Total recebido por ano</h2>
+<div class="chartbox" id="dividendYearChart"><div class="history-empty">Registre seus dividendos para visualizar a evolução anual.</div></div>
+<h2 style="margin-top:20px">Total recebido por mês</h2>
+<label class="field" style="max-width:220px;margin-bottom:10px">Ano para consultar<select id="dividendChartYear"></select></label>
+<div class="chartbox" id="dividendMonthChart"><div class="history-empty">Os valores mensais aparecerão aqui.</div></div>
 </section>
 <section id="trades" class="panel" hidden>
 <h2>Controle de operações e imposto estimado</h2>
@@ -614,7 +621,29 @@ const btn=e.target.closest('button[data-trade-delete]');if(!btn)return;
 const id=btn.getAttribute('data-trade-delete');if(!id)return;
 if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){const previous=db.trades;db.trades=db.trades.filter(t=>String(t.id)!==String(id));const check=calculateTradeLedger();const invalid=check.rows.find(x=>x.side==='sell'&&x.positionAfter< -0.0000001);if(invalid){db.trades=previous;alert('Não é possível excluir: isso deixaria uma venda sem quantidade disponível.');return}syncAssetsFromTradeLedger();persist();render()}
 });
+function renderDividendEvolutionCharts(){
+const valid=db.income.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(String(x.date))&&Number.isFinite(Number(x.value)));
+const annual=new Map(),monthly=new Map();
+for(const item of valid){const year=String(item.date).slice(0,4),month=String(item.date).slice(0,7),value=Number(item.value)||0;annual.set(year,(annual.get(year)||0)+value);monthly.set(month,(monthly.get(month)||0)+value)}
+const years=[...new Set([...annual.keys(),String(new Date().getFullYear())])].sort();
+const select=$('dividendChartYear'),previous=select.value;
+select.innerHTML=years.map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+select.value=years.includes(previous)?previous:years[years.length-1];
+const drawBars=(items,emptyText)=>{
+if(!items.length)return '<div class="history-empty">'+emptyText+'</div>';
+const max=Math.max(1,...items.map(x=>x.value)),width=580,left=34,right=12,plot=width-left-right,step=plot/items.length,bar=Math.min(30,step*.62);
+const bars=items.map((item,i)=>{const h=item.value?Math.max(2,112*item.value/max):1,x=left+i*step+(step-bar)/2,y=132-h;return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bar.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="3" fill="#45c58a"><title>'+esc(item.label)+': '+fmt(item.value)+'</title></rect><text x="'+(x+bar/2).toFixed(1)+'" y="151" text-anchor="middle" fill="#9db2a6" font-size="9">'+esc(item.label)+'</text>'}).join('');
+return '<svg viewBox="0 0 580 164" role="img"><line x1="'+left+'" y1="132" x2="'+(width-right)+'" y2="132" stroke="#294238"/>'+bars+'</svg>';
+};
+const yearItems=[...annual.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([year,value])=>({label:year,value}));
+$('dividendYearChart').innerHTML=drawBars(yearItems,'Registre seus dividendos para visualizar a evolução anual.');
+const selected=select.value||String(new Date().getFullYear());
+const monthItems=Array.from({length:12},(_,i)=>{const key=selected+'-'+String(i+1).padStart(2,'0');return {label:new Date(Number(selected),i,1).toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),value:monthly.get(key)||0}});
+$('dividendMonthChart').innerHTML=drawBars(monthItems,'Nenhum recebimento registrado neste ano.');
+}
+$('dividendChartYear').addEventListener('change',renderDividendEvolutionCharts);
 function project(){
+renderDividendEvolutionCharts();
 let m=Math.max(0,+$('monthlyInput').value||0),
 y=Math.max(1,Math.min(50,+$('yearsInput').value||1)),
 r=Math.max(0,Math.min(50,+$('rateInput').value||0))/100,
