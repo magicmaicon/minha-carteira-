@@ -622,7 +622,7 @@ const id=btn.getAttribute('data-trade-delete');if(!id)return;
 if(confirm('Excluir esta operação? Os saldos e cálculos serão atualizados.')){const previous=db.trades;db.trades=db.trades.filter(t=>String(t.id)!==String(id));const check=calculateTradeLedger();const invalid=check.rows.find(x=>x.side==='sell'&&x.positionAfter< -0.0000001);if(invalid){db.trades=previous;alert('Não é possível excluir: isso deixaria uma venda sem quantidade disponível.');return}syncAssetsFromTradeLedger();persist();render()}
 });
 function renderDividendEvolutionCharts(){
-const valid=db.income.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(String(x.date))&&Number.isFinite(Number(x.value)));
+const valid=db.income.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x.date))&&Number.isFinite(Number(x.value)));
 const annual=new Map(),monthly=new Map();
 for(const item of valid){const year=String(item.date).slice(0,4),month=String(item.date).slice(0,7),value=Number(item.value)||0;annual.set(year,(annual.get(year)||0)+value);monthly.set(month,(monthly.get(month)||0)+value)}
 const years=[...new Set([...annual.keys(),String(new Date().getFullYear())])].sort();
