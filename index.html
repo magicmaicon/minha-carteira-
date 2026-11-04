@@ -36,7 +36,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Aportes</button><button data-tab="projection">Projeção</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Lançamentos</button><button data-tab="projection">Projeção</button>
 </nav>
 <section id="assets" class="panel">
 
@@ -131,10 +131,17 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Horário</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
 </section>
 <section id="contrib" class="panel" hidden>
-<h2>Registrar aporte</h2><div class="formgrid">
+<h2>Pesquisar compras de ativos</h2>
+<p class="muted" style="margin-bottom:10px">Digite o ticker ou nome do ativo para consultar suas compras registradas.</p>
+<label class="field" style="position:relative"><span>⌕ Pesquisar ativo</span><input id="purchaseSearch" type="search" placeholder="Ex.: BBSE3, MXRF11..." autocomplete="off"></label>
+<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Data da compra</th><th>Ativo</th><th>Quantidade</th><th>Preço pago</th><th>Taxas</th><th>Total pago</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
+<p id="purchaseSearchTotal" class="muted" style="margin-top:8px"></p>
+<p class="muted">A consulta considera compras lançadas no controle de operações. Posições antigas importadas apenas como saldo atual não possuem o histórico individual de compras.</p>
+<div class="divider" style="height:1px;background:var(--line);margin:20px 0"></div>
+<h2>Registrar aporte geral</h2><div class="formgrid">
 <label class="field">Data<input id="contribDate" type="date"></label><label class="field">Destino<input id="contribTarget" placeholder="Ex.: Ações / BBSE3"></label><label class="field">Valor (R$)<input id="contribValue" type="number" min="0" step="0.01"></label>
 </div><div class="actions"><button class="primary" id="saveContrib">Registrar aporte</button></div>
-<h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Destino</th><th>Valor</th><th></th></tr></thead><tbody id="contribRows"></tbody></table></div><p id="contribTotal" class="muted"></p>
+<h2 style="margin-top:20px">Histórico de aportes gerais</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Destino</th><th>Valor</th><th></th></tr></thead><tbody id="contribRows"></tbody></table></div><p id="contribTotal" class="muted"></p>
 </section>
 <section id="projection" class="panel" hidden>
 <h2>Projeção de patrimônio e renda passiva</h2>
@@ -234,6 +241,14 @@ pie.innerHTML='<span>'+fmt(total)+'</span>';
 pie.setAttribute('aria-label','Distribuição da carteira: '+rows.map(row=>row.label+' '+(100*row.value/total).toFixed(1)+' por cento').join(', '));
 legend.innerHTML=rows.filter(row=>row.value>0).map(row=>'<div class="category-legend-row"><span class="category-dot" style="background:'+row.color+'"></span><span>'+row.label+'<small>'+fmt(row.value)+'</small></span><strong>'+(100*row.value/total).toFixed(1).replace('.',',')+'%</strong></div>').join('')||'<p class="muted">Sem ativos com valor atual.</p>';
 }
+function renderPurchaseHistory(){
+const query=String($('purchaseSearch').value||'').trim().toLocaleUpperCase();
+const purchases=calculateTradeLedger().rows.filter(t=>t.side==='buy'&&t.mode!=='daytrade'&&t.side!=='adjust'&&String(t.ticker||'').toLocaleUpperCase().includes(query)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+$('purchaseRows').innerHTML=purchases.length?purchases.map(t=>{const fees=Number(t.fees)||0,total=(Number(t.qty)||0)*(Number(t.price)||0)+fees;return '<tr><td>'+esc(String(t.date||'').split('-').reverse().join('/'))+'</td><td><b>'+esc(t.ticker)+'</b></td><td>'+nfmt(t.qty)+'</td><td>'+fmt(t.price)+'</td><td>'+fmt(fees)+'</td><td><b>'+fmt(total)+'</b></td></tr>'}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted)">'+(query?'Nenhuma compra encontrada para essa pesquisa.':'Nenhuma compra registrada no histórico de operações.')+'</td></tr>';
+const total=purchases.reduce((sum,t)=>sum+(Number(t.qty)||0)*(Number(t.price)||0)+(Number(t.fees)||0),0);
+$('purchaseSearchTotal').textContent=purchases.length?purchases.length+' compra(s) encontrada(s) • Total pago: '+fmt(total):'';
+}
+$('purchaseSearch').addEventListener('input',renderPurchaseHistory);
 function render(){
 let total=0,cost=0,annual=0;
 const groupRows={Ação:[],FII:[],Tesouro:[],Outro:[]};
@@ -251,7 +266,7 @@ renderCategoryChart(groupRows);
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
 renderIncomeDashboard();project();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
-$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderHistory();project();
+$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderPurchaseHistory();renderHistory();project();
 }
 function renderIncomeDashboard(){
 const now=localDate(),month=now.slice(0,7),year=now.slice(0,4);
