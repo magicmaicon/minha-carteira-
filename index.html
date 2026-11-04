@@ -389,16 +389,26 @@ $('quoteStatus').textContent=`Atualização concluída: ${updated} cotação(õe
 finally{quoteBusy=false;$('refreshQuotes').disabled=false}
 }
 $('saveAsset').onclick=()=>{
-let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?0:+$('price').value,dividend=$('dividend').value.trim()===''?0:+$('dividend').value;
-if(!ticker||[qty,avg,price,dividend].some(x=>!Number.isFinite(x)||x<0)){alert('Informe o ativo e confira os valores.');return}
-let a={ticker,kind,qty,avg,price,dividend,observation:editing>=0?(db.assets[editing]?.observation||''):''};
+let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?null:+$('price').value,dividend=$('dividend').value.trim()===''?null:+$('dividend').value;
+if(!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(avg)||avg<0||(price!==null&&(!Number.isFinite(price)||price<0))||(dividend!==null&&(!Number.isFinite(dividend)||dividend<0))){alert('Informe o ativo e confira os valores. A quantidade deve ser maior que zero.');return}
 const oldAsset=editing>=0?{...db.assets[editing]}:null;
-const existingIndex=editing<0?db.assets.findIndex(x=>x.ticker===ticker&&x.kind===kind):-1;
-if(oldAsset&&(oldAsset.ticker!==ticker||oldAsset.kind!==kind))addManualAdjustment(oldAsset.ticker,oldAsset.kind,0,0);
-if(editing>=0)db.assets[editing]=a;else if(existingIndex>=0)db.assets[existingIndex]=a;else db.assets.push(a);
+const existingIndex=editing<0?db.assets.findIndex(x=>String(x.ticker||'').toUpperCase()===ticker&&x.kind===kind):-1;
+if(editing>=0){
+const current=db.assets[editing];
+if(oldAsset.ticker!==ticker||oldAsset.kind!==kind)addManualAdjustment(oldAsset.ticker,oldAsset.kind,0,0);
+db.assets[editing]={...current,ticker,kind,price:price===null?(Number(current.price)||0):price,dividend:dividend===null?(Number(current.dividend)||0):dividend};
 addManualAdjustment(ticker,kind,qty,avg);
-persist();clearAsset();syncAssetsFromTradeLedger();render();
-if(isQuotedKind(kind))refreshQuotes(ticker);else $('quoteStatus').textContent='Ativo salvo. Para Tesouro e outros ativos, informe a cotação manualmente.';
+}else{
+let asset=existingIndex>=0?db.assets[existingIndex]:null;
+if(!asset){asset={ticker,kind,qty:0,avg:0,price:price===null?avg:price,dividend:dividend===null?0:dividend,observation:''};db.assets.push(asset)}
+else{
+if(price!==null)asset.price=price;
+if(dividend!==null)asset.dividend=dividend;
+}
+db.trades.push({id:'buy-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date:localDate(),ticker,kind,side:'buy',mode:'common',broker:'',time:'',qty,price:avg,fees:0});
+}
+persist();clearAsset();syncAssetsFromTradeLedger();persist();render();
+if(isQuotedKind(kind))refreshQuotes(ticker);else $('quoteStatus').textContent='Lançamento salvo. Para Tesouro e outros ativos, informe a cotação manualmente.';
 };
 $('cancelEdit').onclick=clearAsset;
 $('refreshQuotes').onclick=()=>refreshQuotes();
