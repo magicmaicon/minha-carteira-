@@ -46,6 +46,10 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
   <div class="formgrid" style="margin-top:14px">
   <label class="field">Tipo<select id="kind"><option>Ação</option><option>FII</option><option>Tesouro</option><option>Outro</option></select></label>
   <label class="field">Ticker ou nome<input id="ticker" placeholder="Ex.: BBSE3"></label><label class="field">Setor (ações)<select id="sector"><option value="">Não classificado</option><option>Financeiro</option><option>Energia elétrica</option><option>Petróleo e gás</option><option>Materiais básicos</option><option>Consumo cíclico</option><option>Consumo não cíclico</option><option>Indústria</option><option>Telecomunicações</option><option>Tecnologia</option><option>Saúde</option><option>Outros</option></select></label>
+  <label class="field">Lucro projetado próximos 12 meses (R$)<input id="projectedProfit" type="number" min="0" step="0.01" placeholder="Informe a projeção"></label>
+  <label class="field">Total de ações da empresa<input id="companyShares" type="number" min="1" step="1" placeholder="Quantidade total"></label>
+  <label class="field">Payout (%)<input id="payout" type="number" min="0" max="100" step="0.01" placeholder="Ex.: 60"></label>
+  <label class="field">YM – retorno desejado (%)<input id="ym" type="number" min="0.01" max="100" step="0.01" placeholder="Ex.: 8"></label>
   <label class="field">Quantidade<input id="qty" type="number" min="0" step="0.0001"></label>
   <label class="field">Preço médio (R$)<input id="avg" type="number" min="0" step="0.01"></label>
   <label class="field">Valor total da compra (R$)<input id="purchaseTotal" type="text" readonly value="R$ 0,00"></label>
@@ -438,7 +442,7 @@ $('openAssetForm').onclick=()=>{clearAsset();openAssetForm()};
 
 $('closeAssetForm').onclick=closeAssetForm;
 $('assetFormModal').addEventListener('click',e=>{if(e.target.id==='assetFormModal')closeAssetForm()});
-function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend','sector'].forEach(x=>$(x).value='');updatePurchaseTotal();$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
+function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend','sector','projectedProfit','companyShares','payout','ym'].forEach(x=>$(x).value='');updatePurchaseTotal();$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
 function isQuotedKind(kind){return kind==='Ação'||kind==='FII'}
 async function refreshQuotes(onlyTicker=null){
 if(quoteBusy){$('quoteStatus').textContent='Já existe uma atualização de cotações em andamento.';return}
@@ -477,20 +481,20 @@ $('quoteStatus').textContent=`Atualização concluída: ${updated} cotação(õe
 finally{quoteBusy=false;$('refreshQuotes').disabled=false}
 }
 $('saveAsset').onclick=()=>{
-let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,sector=$('sector').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?null:+$('price').value,dividend=$('dividend').value.trim()===''?null:+$('dividend').value;
-if(!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(avg)||avg<0||(price!==null&&(!Number.isFinite(price)||price<0))||(dividend!==null&&(!Number.isFinite(dividend)||dividend<0))){alert('Informe o ativo e confira os valores. A quantidade deve ser maior que zero.');return}
+let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,sector=$('sector').value,projectedProfit=$('projectedProfit').value.trim()===''?null:+$('projectedProfit').value,companyShares=$('companyShares').value.trim()===''?null:+$('companyShares').value,payout=$('payout').value.trim()===''?null:+$('payout').value,ym=$('ym').value.trim()===''?null:+$('ym').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?null:+$('price').value,dividend=$('dividend').value.trim()===''?null:+$('dividend').value;
+if(!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(avg)||avg<0||(price!==null&&(!Number.isFinite(price)||price<0))||(dividend!==null&&(!Number.isFinite(dividend)||dividend<0))||(projectedProfit!==null&&(!Number.isFinite(projectedProfit)||projectedProfit<0))||(companyShares!==null&&(!Number.isFinite(companyShares)||companyShares<=0))||(payout!==null&&(!Number.isFinite(payout)||payout<0||payout>100))||(ym!==null&&(!Number.isFinite(ym)||ym<=0||ym>100))){alert('Informe o ativo e confira os valores. A quantidade deve ser maior que zero.');return}
 const oldAsset=editing>=0?{...db.assets[editing]}:null;
 const existingIndex=editing<0?db.assets.findIndex(x=>String(x.ticker||'').toUpperCase()===ticker&&x.kind===kind):-1;
 if(editing>=0){
 const current=db.assets[editing];
 if(oldAsset.ticker!==ticker||oldAsset.kind!==kind)addManualAdjustment(oldAsset.ticker,oldAsset.kind,0,0);
-db.assets[editing]={...current,ticker,kind,sector:kind==='Ação'?sector:'',price:price===null?(Number(current.price)||0):price,dividend:dividend===null?(Number(current.dividend)||0):dividend};
+db.assets[editing]={...current,ticker,kind,sector:kind==='Ação'?sector:'',projectedProfit,companyShares,payout,ym,price:price===null?(Number(current.price)||0):price,dividend:dividend===null?(Number(current.dividend)||0):dividend};
 addManualAdjustment(ticker,kind,qty,avg);
 }else{
 let asset=existingIndex>=0?db.assets[existingIndex]:null;
-if(!asset){asset={ticker,kind,sector:kind==='Ação'?sector:'',qty:0,avg:0,price:price===null?avg:price,dividend:dividend===null?0:dividend,observation:''};db.assets.push(asset)}
+if(!asset){asset={ticker,kind,sector:kind==='Ação'?sector:'',projectedProfit,companyShares,payout,ym,qty:0,avg:0,price:price===null?avg:price,dividend:dividend===null?0:dividend,observation:''};db.assets.push(asset)}
 else{
-if(kind==='Ação')asset.sector=sector;if(price!==null)asset.price=price;
+if(kind==='Ação'){asset.sector=sector;asset.projectedProfit=projectedProfit;asset.companyShares=companyShares;asset.payout=payout;asset.ym=ym;}if(price!==null)asset.price=price;
 if(dividend!==null)asset.dividend=dividend;
 }
 db.trades.push({id:'buy-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date:localDate(),ticker,kind,side:'buy',mode:'common',broker:'',time:'',qty,price:avg,fees:0});
@@ -508,8 +512,8 @@ const qty=Number(a.qty)||0,avg=Number(a.avg)||0,price=Number(a.price)||0,dividen
 const invested=qty*avg,current=qty*price,result=current-invested,annual=qty*dividend,dy=current>0?annual/current*100:0;
 const received=db.income.filter(x=>String(x.ticker||'').toUpperCase()===String(a.ticker||'').toUpperCase()).reduce((sum,x)=>sum+(Number(x.value)||0),0);
 const cutoff=new Date();cutoff.setFullYear(cutoff.getFullYear()-1);
-const dpa12m=a.kind==='Ação'?db.income.filter(x=>String(x.ticker||'').toUpperCase()===String(a.ticker||'').toUpperCase()&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.date))&&new Date(x.date+'T00:00:00')>=cutoff&&Number(x.perShareNet)>0).reduce((sum,x)=>sum+Number(x.perShareNet),0):0;
-const targetBase=dpa12m>0?dpa12m/0.08:0,targetPrice=targetBase*0.75,safety=targetBase>0?(targetBase-price)/targetBase*100:null,projectedYield=price>0&&dpa12m>0?dpa12m/price*100:null;
+const projectedProfit=Number(a.projectedProfit)||0,companyShares=Number(a.companyShares)||0,payout=Number(a.payout)||0,ym=Number(a.ym)||8;
+const projectedLpa=projectedProfit>0&&companyShares>0?projectedProfit/companyShares:null,projectedDpa=projectedLpa!==null&&payout>0?projectedLpa*payout/100:null,targetPrice=projectedDpa!==null&&ym>0?projectedDpa/(ym/100):null,margin=targetPrice!==null&&price>0?(targetPrice-price)/price*100:null,projectedYield=projectedDpa!==null&&price>0?projectedDpa/price*100:null;
 const relatedContrib=db.contrib.filter(x=>String(x.target||'').toUpperCase().includes(String(a.ticker||'').toUpperCase())).reduce((sum,x)=>sum+(Number(x.value)||0),0);
 $('detailContent').innerHTML=`<div class="actions" style="justify-content:space-between;align-items:center;margin-top:0"><div><h2 style="margin:0">${esc(a.ticker)}</h2><p class="muted">${esc(a.kind)} · dados cadastrados no aplicativo</p></div><button id="detailEdit">Editar cadastro</button></div>
 <div class="cards" style="margin-top:14px">
@@ -526,7 +530,7 @@ $('detailContent').innerHTML=`<div class="actions" style="justify-content:space-
 <div class="card"><div class="k">Renda mensal estimada</div><div class="v">${fmt(annual/12)}</div></div>
 <div class="card"><div class="k">DY estimado informado</div><div class="v">${dy.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%</div></div>
 </div>
-${a.kind==='Ação'?`<h2 style="margin-top:20px">Indicadores projetados</h2><div class="cards"><div class="card"><div class="k">DPA líquido – últimos 12 meses</div><div class="v">${dpa12m>0?fmt(dpa12m):'Sem dados'}</div></div><div class="card"><div class="k">Yield projetado</div><div class="v">${projectedYield===null?'—':projectedYield.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'}</div></div><div class="card"><div class="k">Preço-teto com margem de 25%</div><div class="v">${targetPrice>0?fmt(targetPrice):'—'}</div></div><div class="card"><div class="k">Margem até o valor-base</div><div class="v">${safety===null?'—':safety.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'}</div></div></div><p class="muted">Retorno desejado de 8% ao ano e desconto de 25%. O DPA soma os valores líquidos por ação registrados nos últimos 12 meses. Informe o provento líquido por ação ao registrar cada recebimento. Sem esses dados, os indicadores ficam indisponíveis. Estimativas não são garantia.</p>`:''}
+${a.kind==='Ação'?`<h2 style="margin-top:20px">Indicadores projetados – próximos 12 meses</h2><div class="cards"><div class="card"><div class="k">Setor</div><div class="v">${esc(a.sector||'Não classificado')}</div></div><div class="card"><div class="k">Lucro projetado – 12 meses</div><div class="v">${projectedProfit>0?fmt(projectedProfit):'A informar'}</div></div><div class="card"><div class="k">LPA projetado</div><div class="v">${projectedLpa!==null?fmt(projectedLpa):'—'}</div></div><div class="card"><div class="k">Payout</div><div class="v">${payout>0?payout.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':'—'}</div></div><div class="card"><div class="k">DPA projetado</div><div class="v">${projectedDpa!==null?fmt(projectedDpa):'—'}</div></div><div class="card"><div class="k">YM – retorno desejado</div><div class="v">${ym.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%</div></div><div class="card"><div class="k">Yield projetado</div><div class="v">${projectedYield===null?'—':projectedYield.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'}</div></div><div class="card"><div class="k">Preço-teto</div><div class="v">${targetPrice!==null?fmt(targetPrice):'—'}</div></div><div class="card"><div class="k">Margem até preço-teto</div><div class="v">${margin===null?'—':margin.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'}</div></div></div><p class="muted">Cálculo: LPA = lucro projetado ÷ total de ações; DPA = LPA × payout; preço-teto = DPA ÷ YM. Preencha lucro projetado, total de ações, payout e YM no cadastro/edição. Os valores são estimativas, dependem da qualidade e data da projeção e não representam dividendos garantidos. A margem positiva indica quanto a cotação está abaixo do preço-teto; negativa indica quanto está acima.</p>`:''}
 <h2 style="margin-top:20px">Histórico registrado</h2><div class="cards">
 <div class="card"><div class="k">Dividendos recebidos registrados</div><div class="v">${fmt(received)}</div></div>
 <div class="card"><div class="k">Aportes identificados pelo ticker no destino</div><div class="v">${fmt(relatedContrib)}</div></div>
@@ -536,9 +540,9 @@ $('assetObservation').value=a.observation||'';
 $('assets').hidden=true;$('assetDetail').hidden=false;
 }
 $('detailBack').onclick=()=>{$('assetDetail').hidden=true;$('assets').hidden=false};
-$('detailContent').onclick=e=>{if(!e.target.closest('#detailEdit'))return;const i=selectedAssetIndex;$('assetDetail').hidden=true;$('assets').hidden=false;editing=i;const a=db.assets[i];if(!a)return;$('kind').value=a.kind;for(const k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})};
+$('detailContent').onclick=e=>{if(!e.target.closest('#detailEdit'))return;const i=selectedAssetIndex;$('assetDetail').hidden=true;$('assets').hidden=false;editing=i;const a=db.assets[i];if(!a)return;$('kind').value=a.kind;for(const k of ['ticker','qty','avg','price','dividend','projectedProfit','companyShares','payout','ym'])$(k).value=a[k]??'';$('sector').value=a.sector||'';$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})};
 $('saveObservation').onclick=()=>{if(selectedAssetIndex<0||!db.assets[selectedAssetIndex])return;db.assets[selectedAssetIndex].observation=$('assetObservation').value.trim();persist();$('observationStatus').textContent='Observações salvas neste aparelho.'};
-$('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.dataset.detail!==undefined){showAssetDetail(Number(t.dataset.detail));return}if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('sector').value=a.sector||'';$('saveAsset').textContent='Salvar lançamento';openAssetForm()}};
+$('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.dataset.detail!==undefined){showAssetDetail(Number(t.dataset.detail));return}if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend','projectedProfit','companyShares','payout','ym'])$(k).value=a[k]??'';$('sector').value=a.sector||'';$('saveAsset').textContent='Salvar lançamento';openAssetForm()}};
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value,perShareNet=Number($('incomePerShareNet').value)||0;if(!ticker||!date||!(value>0)||perShareNet<0){alert('Preencha ativo, data e valor recebido.');return}db.income.push({ticker,date,value,...(perShareNet>0?{perShareNet}:{})});persist();$('incomeTicker').value='';$('incomeValue').value='';$('incomePerShareNet').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
