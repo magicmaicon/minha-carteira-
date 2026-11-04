@@ -106,8 +106,12 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:20px">Rentabilidade</h2>
 <p class="muted">Resultado em reais e percentual sobre o valor investido em cada registro histórico.</p>
 <div class="chartbox" id="returnChart"></div>
-<h2 style="margin-top:20px">Ações: posições atuais por setor</h2>
-<p class="muted">Distribuição pelo valor atual das ações (quantidade × cotação). Edite cada ação na aba Ativos para informar seu setor.</p>
+<h2 style="margin-top:20px">Posições atuais por setor</h2>
+<div class="actions" style="margin:8px 0 12px">
+<button type="button" class="active" id="chartStocksTab">Ações</button>
+<button type="button" id="chartFiisTab">FIIs</button>
+</div>
+<p class="muted" id="sectorChartNote">Distribuição das ações pelo valor atual (quantidade × cotação).</p>
 <div class="category-chart"><div id="sectorPie" class="category-pie"><span>Sem ações</span></div><div id="sectorLegend" class="category-legend"></div></div>
 </section>
 <section id="income" class="panel" hidden>
@@ -248,6 +252,12 @@ BBSE3:'Financeiro',BBAS3:'Financeiro',BBDC3:'Financeiro',ITSA4:'Financeiro',CXSE
 PETR4:'Petróleo e gás',RANI3:'Materiais básicos',KLBN4:'Materiais básicos',VALE3:'Materiais básicos',
 ISAE4:'Energia elétrica',CMIG4:'Energia elétrica',AXIA3:'Energia elétrica'
 };
+const knownFiiSectors={
+XPCA11:'Agro',VGIA11:'Agro',FGAA11:'Agro',RZAG11:'Agro',
+ARRI11:'Papel / CRI',MXRF11:'Papel / CRI',HGCR11:'Papel / CRI',KNSC11:'Papel / CRI',BTCI11:'Papel / CRI',
+BTLG11:'Logística',GGRC11:'Logística',HGBS11:'Shopping',VISC11:'Shopping',
+TRXF11:'Renda urbana',VGHF11:'Multiestratégia'
+};
 db.assets.forEach(a=>{if(a.kind==='Ação'){const ticker=String(a.ticker||'').toUpperCase();if(knownStockSectors[ticker])a.sector=knownStockSectors[ticker];}});
 if(!Array.isArray(db.taxOpeningBalances)){db.taxOpeningBalances=db.assets.map(a=>({ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0}));const d=new Date();db.taxOpeningDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}if(!db.taxLossOpening||typeof db.taxLossOpening!=='object')db.taxLossOpening={stock:0,fii:0,dayTrade:0};if(!db.taxIrrfOpening||typeof db.taxIrrfOpening!=='object')db.taxIrrfOpening={common:0,dayTrade:0,dayTradeYear:new Date().getFullYear()};
 const persist=()=>localStorage.setItem(key,JSON.stringify(db));
@@ -355,11 +365,24 @@ const points=[...groups.entries()].map(([k,x])=>({label:labelOf(k),total:Number(
 const bars=(items,valueKey,empty)=>{if(!items.length)return '<div class="history-empty">'+empty+'</div>';const max=Math.max(1,...items.map(x=>Math.abs(x[valueKey])));return '<svg viewBox="0 0 600 190" role="img"><line x1="20" y1="150" x2="580" y2="150" stroke="#294238"/>'+items.slice(-24).map((x,i,a)=>{const w=Math.min(28,500/a.length-5),gap=540/a.length,xx=30+i*gap,hh=Math.max(2,Math.abs(x[valueKey])/max*115),yy=x[valueKey]>=0?150-hh:150;return '<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="3" fill="'+(x[valueKey]>=0?'#45c58a':'#ff7777')+'"><title>'+esc(x.label)+': '+fmt(x[valueKey])+'</title></rect><text x="'+(xx+w/2).toFixed(1)+'" y="172" text-anchor="middle" fill="#9db2a6" font-size="10">'+esc(x.label)+'</text>'}).join('')+'</svg>'};
 $('wealthChart').innerHTML=bars(points,'total','Ainda não há registros históricos de patrimônio.');
 $('returnChart').innerHTML=bars(points,'result','Ainda não há registros históricos de rentabilidade.')+'<p class="muted">Último registro: '+(points.length?points[points.length-1].pct.toFixed(2).replace('.',',')+'%':'sem dados')+'</p>';
-const sectors=new Map();for(const a of db.assets.filter(a=>a.kind==='Ação')){const name=a.sector||'Não classificado',v=(Number(a.qty)||0)*(Number(a.price)||0);sectors.set(name,(sectors.get(name)||0)+v)}
-const entries=[...sectors.entries()].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]),sum=entries.reduce((n,x)=>n+x[1],0);
-if(!sum){$('sectorPie').style.background='conic-gradient(#31443b 0 100%)';$('sectorPie').innerHTML='<span>Sem ações</span>';$('sectorLegend').innerHTML='<p class="muted">Cadastre ações com cotação para visualizar.</p>'}
-else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#55c6c6','#b7cf75','#e68db8','#a4a4a4','#d48c55'];const slices=entries.map(([n,v],i)=>{const start=at;at+=v/sum*100;return colors[i%colors.length]+' '+start.toFixed(2)+'% '+at.toFixed(2)+'%'}).join(',');$('sectorPie').style.background='conic-gradient('+slices+')';$('sectorPie').innerHTML='<span>'+fmt(sum)+'</span>';$('sectorLegend').innerHTML=entries.map(([n,v],i)=>'<div class="category-legend-row"><span class="category-dot" style="background:'+colors[i%colors.length]+'"></span><span>'+esc(n)+'<small>'+(100*v/sum).toFixed(1).replace('.',',')+'%</small></span><strong>'+fmt(v)+'</strong></div>').join('')}
+const view=window.portfolioChartView||'Ação';
+const isStock=view==='Ação';
+$('chartStocksTab').classList.toggle('active',isStock);
+$('chartFiisTab').classList.toggle('active',!isStock);
+$('sectorChartNote').textContent=isStock?'Distribuição das ações pelo valor atual (quantidade × cotação).':'Distribuição dos FIIs pelo valor atual (cotas × cotação).';
+const sectors=new Map();
+for(const a of db.assets.filter(a=>a.kind===view)){
+ const ticker=String(a.ticker||'').toUpperCase();
+ const sector=isStock?(a.sector||'Não classificado'):(knownFiiSectors[ticker]||'Não classificado');
+ const value=(Number(a.qty)||0)*(Number(a.price)||0);
+ sectors.set(sector,(sectors.get(sector)||0)+value);
 }
+const entries=[...sectors.entries()].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]),sum=entries.reduce((n,x)=>n+x[1],0);
+if(!sum){$('sectorPie').style.background='conic-gradient(#31443b 0 100%)';$('sectorPie').innerHTML='<span>Sem '+(isStock?'ações':'FIIs')+'</span>';$('sectorLegend').innerHTML='<p class="muted">Cadastre quantidade e cotação para visualizar.</p>'}
+else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#55c6c6','#b7cf75','#e68db8','#a4a4a4','#d48c55'];const slices=entries.map(([n,v],i)=>{const begin=at;at+=v/sum*100;return colors[i%colors.length]+' '+begin.toFixed(2)+'% '+at.toFixed(2)+'%'}).join(',');$('sectorPie').style.background='conic-gradient('+slices+')';$('sectorPie').innerHTML='<span>'+fmt(sum)+'</span>';$('sectorLegend').innerHTML=entries.map(([n,v],i)=>'<div class="category-legend-row"><span class="category-dot" style="background:'+colors[i%colors.length]+'"></span><span>'+esc(n)+'<small>'+(100*v/sum).toFixed(1).replace('.',',')+'%</small></span><strong>'+fmt(v)+'</strong></div>').join('')}
+}
+$('chartStocksTab').addEventListener('click',()=>{window.portfolioChartView='Ação';renderPortfolioCharts()});
+$('chartFiisTab').addEventListener('click',()=>{window.portfolioChartView='FII';renderPortfolioCharts()});
 $('wealthPeriod').addEventListener('change',renderPortfolioCharts);
 function renderHistory(){
 const rows=[...db.history].sort((a,b)=>a.date.localeCompare(b.date));
