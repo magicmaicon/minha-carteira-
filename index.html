@@ -36,7 +36,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
  <div class="card"><div class="k">Dividendos mensais estimados</div><div class="v" id="monthly">R$ 0,00</div><div class="k" id="annual">R$ 0,00 ao ano</div></div>
 </div>
 <nav>
-<button class="active" data-tab="assets">Ativos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Lançamentos</button><button data-tab="projection">Projeção</button>
+<button class="active" data-tab="assets">Ativos</button><button data-tab="charts">Gráficos</button><button data-tab="evolution">Evolução</button><button data-tab="income">Dividendos</button><button data-tab="contrib">Lançamentos</button><button data-tab="projection">Projeção</button>
 </nav>
 <section id="assets" class="panel">
 
@@ -45,7 +45,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
   <div class="actions" style="justify-content:space-between;align-items:center;margin-top:0"><h2 id="assetFormTitle" style="margin:0">Adicionar lançamento</h2><button type="button" id="closeAssetForm" aria-label="Fechar">✕</button></div>
   <div class="formgrid" style="margin-top:14px">
   <label class="field">Tipo<select id="kind"><option>Ação</option><option>FII</option><option>Tesouro</option><option>Outro</option></select></label>
-  <label class="field">Ticker ou nome<input id="ticker" placeholder="Ex.: BBSE3"></label>
+  <label class="field">Ticker ou nome<input id="ticker" placeholder="Ex.: BBSE3"></label><label class="field">Setor (ações)<select id="sector"><option value="">Não classificado</option><option>Financeiro</option><option>Energia elétrica</option><option>Petróleo e gás</option><option>Materiais básicos</option><option>Consumo cíclico</option><option>Consumo não cíclico</option><option>Indústria</option><option>Telecomunicações</option><option>Tecnologia</option><option>Saúde</option><option>Outros</option></select></label>
   <label class="field">Quantidade<input id="qty" type="number" min="0" step="0.0001"></label>
   <label class="field">Preço médio (R$)<input id="avg" type="number" min="0" step="0.01"></label>
   <label class="field">Valor total da compra (R$)<input id="purchaseTotal" type="text" readonly value="R$ 0,00"></label>
@@ -96,6 +96,19 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:20px">Histórico diário</h2>
 <div class="tablewrap"><table><thead><tr><th>Data</th><th>Patrimônio</th><th>Investido</th><th>Resultado</th></tr></thead><tbody id="historyRows"></tbody></table></div>
 <p class="muted" id="historyNote" style="margin-top:10px">Os registros são armazenados neste aparelho e incluídos no backup.</p>
+</section>
+<section id="charts" class="panel" hidden>
+<h2>Gráficos da carteira</h2>
+<p class="muted">Os gráficos usam os registros históricos disponíveis neste aparelho. Os períodos sem registros não são estimados.</p>
+<h2 style="margin-top:18px">Evolução do patrimônio</h2>
+<label class="field" style="max-width:220px">Visualização<select id="wealthPeriod"><option value="year">Por ano</option><option value="month">Por mês</option></select></label>
+<div class="chartbox" id="wealthChart" style="margin-top:8px"></div>
+<h2 style="margin-top:20px">Rentabilidade</h2>
+<p class="muted">Resultado em reais e percentual sobre o valor investido em cada registro histórico.</p>
+<div class="chartbox" id="returnChart"></div>
+<h2 style="margin-top:20px">Ações: posições atuais por setor</h2>
+<p class="muted">Distribuição pelo valor atual das ações (quantidade × cotação). Edite cada ação na aba Ativos para informar seu setor.</p>
+<div class="category-chart"><div id="sectorPie" class="category-pie"><span>Sem ações</span></div><div id="sectorLegend" class="category-legend"></div></div>
 </section>
 <section id="income" class="panel" hidden>
 <h2>Painel de dividendos</h2>
@@ -273,7 +286,7 @@ renderCategoryChart(groupRows);
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
 renderIncomeDashboard();project();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
-$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderPurchaseHistory();renderHistory();project();
+$('contribRows').innerHTML=db.contrib.map((x,i)=>`<tr><td>${esc(x.date)}</td><td>${esc(x.target)}</td><td>${fmt(x.value)}</td><td><button data-remove="contrib:${i}">×</button></td></tr>`).join('');$('contribTotal').textContent='Total aportado: '+fmt(db.contrib.reduce((s,x)=>s+(Number(x.value)||0),0));renderPurchaseHistory();renderHistory();renderPortfolioCharts();project();
 }
 function renderIncomeDashboard(){
 const now=localDate(),month=now.slice(0,7),year=now.slice(0,4);
@@ -325,6 +338,23 @@ db.history.sort((a,b)=>a.date.localeCompare(b.date));
 if(db.history.length>365)db.history=db.history.slice(-365);
 persist();render();
 }
+function renderPortfolioCharts(){
+const rows=[...(db.history||[])].filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(x.date)).sort((a,b)=>a.date.localeCompare(b.date));
+const period=$('wealthPeriod')?.value||'year';
+const keyOf=x=>period==='year'?x.date.slice(0,4):x.date.slice(0,7);
+const labelOf=k=>period==='year'?k:k.split('-').reverse().join('/');
+const groups=new Map();
+for(const x of rows){const k=keyOf(x);groups.set(k,x)}
+const points=[...groups.entries()].map(([k,x])=>({label:labelOf(k),total:Number(x.total)||0,result:Number(x.result)||0,pct:Number(x.pct)||0}));
+const bars=(items,valueKey,empty)=>{if(!items.length)return '<div class="history-empty">'+empty+'</div>';const max=Math.max(1,...items.map(x=>Math.abs(x[valueKey])));return '<svg viewBox="0 0 600 190" role="img"><line x1="20" y1="150" x2="580" y2="150" stroke="#294238"/>'+items.slice(-24).map((x,i,a)=>{const w=Math.min(28,500/a.length-5),gap=540/a.length,xx=30+i*gap,hh=Math.max(2,Math.abs(x[valueKey])/max*115),yy=x[valueKey]>=0?150-hh:150;return '<rect x="'+xx.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="3" fill="'+(x[valueKey]>=0?'#45c58a':'#ff7777')+'"><title>'+esc(x.label)+': '+fmt(x[valueKey])+'</title></rect><text x="'+(xx+w/2).toFixed(1)+'" y="172" text-anchor="middle" fill="#9db2a6" font-size="10">'+esc(x.label)+'</text>'}).join('')+'</svg>'};
+$('wealthChart').innerHTML=bars(points,'total','Ainda não há registros históricos de patrimônio.');
+$('returnChart').innerHTML=bars(points,'result','Ainda não há registros históricos de rentabilidade.')+'<p class="muted">Último registro: '+(points.length?points[points.length-1].pct.toFixed(2).replace('.',',')+'%':'sem dados')+'</p>';
+const sectors=new Map();for(const a of db.assets.filter(a=>a.kind==='Ação')){const name=a.sector||'Não classificado',v=(Number(a.qty)||0)*(Number(a.price)||0);sectors.set(name,(sectors.get(name)||0)+v)}
+const entries=[...sectors.entries()].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]),sum=entries.reduce((n,x)=>n+x[1],0);
+if(!sum){$('sectorPie').style.background='conic-gradient(#31443b 0 100%)';$('sectorPie').innerHTML='<span>Sem ações</span>';$('sectorLegend').innerHTML='<p class="muted">Cadastre ações com cotação para visualizar.</p>'}
+else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#55c6c6','#b7cf75','#e68db8','#a4a4a4','#d48c55'];const slices=entries.map(([n,v],i)=>{const start=at;at+=v/sum*100;return colors[i%colors.length]+' '+start.toFixed(2)+'% '+at.toFixed(2)+'%'}).join(',');$('sectorPie').style.background='conic-gradient('+slices+')';$('sectorPie').innerHTML='<span>'+fmt(sum)+'</span>';$('sectorLegend').innerHTML=entries.map(([n,v],i)=>'<div class="category-legend-row"><span class="category-dot" style="background:'+colors[i%colors.length]+'"></span><span>'+esc(n)+'<small>'+(100*v/sum).toFixed(1).replace('.',',')+'%</small></span><strong>'+fmt(v)+'</strong></div>').join('')}
+}
+$('wealthPeriod').addEventListener('change',renderPortfolioCharts);
 function renderHistory(){
 const rows=[...db.history].sort((a,b)=>a.date.localeCompare(b.date));
 const latest=rows[rows.length-1],first=rows[0];
@@ -358,7 +388,7 @@ $('openAssetForm').onclick=()=>{clearAsset();openAssetForm()};
 
 $('closeAssetForm').onclick=closeAssetForm;
 $('assetFormModal').addEventListener('click',e=>{if(e.target.id==='assetFormModal')closeAssetForm()});
-function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');updatePurchaseTotal();$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
+function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend','sector'].forEach(x=>$(x).value='');updatePurchaseTotal();$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
 function isQuotedKind(kind){return kind==='Ação'||kind==='FII'}
 async function refreshQuotes(onlyTicker=null){
 if(quoteBusy){$('quoteStatus').textContent='Já existe uma atualização de cotações em andamento.';return}
@@ -397,20 +427,20 @@ $('quoteStatus').textContent=`Atualização concluída: ${updated} cotação(õe
 finally{quoteBusy=false;$('refreshQuotes').disabled=false}
 }
 $('saveAsset').onclick=()=>{
-let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?null:+$('price').value,dividend=$('dividend').value.trim()===''?null:+$('dividend').value;
+let ticker=$('ticker').value.trim().toUpperCase(),kind=$('kind').value,sector=$('sector').value,qty=+$('qty').value,avg=+$('avg').value,price=$('price').value.trim()===''?null:+$('price').value,dividend=$('dividend').value.trim()===''?null:+$('dividend').value;
 if(!ticker||!Number.isFinite(qty)||qty<=0||!Number.isFinite(avg)||avg<0||(price!==null&&(!Number.isFinite(price)||price<0))||(dividend!==null&&(!Number.isFinite(dividend)||dividend<0))){alert('Informe o ativo e confira os valores. A quantidade deve ser maior que zero.');return}
 const oldAsset=editing>=0?{...db.assets[editing]}:null;
 const existingIndex=editing<0?db.assets.findIndex(x=>String(x.ticker||'').toUpperCase()===ticker&&x.kind===kind):-1;
 if(editing>=0){
 const current=db.assets[editing];
 if(oldAsset.ticker!==ticker||oldAsset.kind!==kind)addManualAdjustment(oldAsset.ticker,oldAsset.kind,0,0);
-db.assets[editing]={...current,ticker,kind,price:price===null?(Number(current.price)||0):price,dividend:dividend===null?(Number(current.dividend)||0):dividend};
+db.assets[editing]={...current,ticker,kind,sector:kind==='Ação'?sector:'',price:price===null?(Number(current.price)||0):price,dividend:dividend===null?(Number(current.dividend)||0):dividend};
 addManualAdjustment(ticker,kind,qty,avg);
 }else{
 let asset=existingIndex>=0?db.assets[existingIndex]:null;
-if(!asset){asset={ticker,kind,qty:0,avg:0,price:price===null?avg:price,dividend:dividend===null?0:dividend,observation:''};db.assets.push(asset)}
+if(!asset){asset={ticker,kind,sector:kind==='Ação'?sector:'',qty:0,avg:0,price:price===null?avg:price,dividend:dividend===null?0:dividend,observation:''};db.assets.push(asset)}
 else{
-if(price!==null)asset.price=price;
+if(kind==='Ação')asset.sector=sector;if(price!==null)asset.price=price;
 if(dividend!==null)asset.dividend=dividend;
 }
 db.trades.push({id:'buy-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date:localDate(),ticker,kind,side:'buy',mode:'common',broker:'',time:'',qty,price:avg,fees:0});
@@ -454,11 +484,11 @@ $('assets').hidden=true;$('assetDetail').hidden=false;
 $('detailBack').onclick=()=>{$('assetDetail').hidden=true;$('assets').hidden=false};
 $('detailContent').onclick=e=>{if(!e.target.closest('#detailEdit'))return;const i=selectedAssetIndex;$('assetDetail').hidden=true;$('assets').hidden=false;editing=i;const a=db.assets[i];if(!a)return;$('kind').value=a.kind;for(const k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Atualizar ativo';scrollTo({top:0,behavior:'smooth'})};
 $('saveObservation').onclick=()=>{if(selectedAssetIndex<0||!db.assets[selectedAssetIndex])return;db.assets[selectedAssetIndex].observation=$('assetObservation').value.trim();persist();$('observationStatus').textContent='Observações salvas neste aparelho.'};
-$('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.dataset.detail!==undefined){showAssetDetail(Number(t.dataset.detail));return}if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('saveAsset').textContent='Salvar lançamento';openAssetForm()}};
+$('assets').onclick=e=>{let t=e.target.closest('button');if(!t)return;if(t.dataset.detail!==undefined){showAssetDetail(Number(t.dataset.detail));return}if(t.dataset.del!==undefined){if(confirm('Excluir ativo da visualização? O histórico será preservado e a posição será ajustada para zero.')){const a=db.assets[+t.dataset.del];if(a)addManualAdjustment(a.ticker,a.kind,0,0);db.assets.splice(+t.dataset.del,1);persist();syncAssetsFromTradeLedger();render()}}if(t.dataset.edit!==undefined){editing=+t.dataset.edit;let a=db.assets[editing];$('kind').value=a.kind;for(let k of ['ticker','qty','avg','price','dividend'])$(k).value=a[k];$('sector').value=a.sector||'';$('saveAsset').textContent='Salvar lançamento';openAssetForm()}};
 $('saveIncome').onclick=()=>{let ticker=$('incomeTicker').value.trim().toUpperCase(),date=$('incomeDate').value,value=+$('incomeValue').value;if(!ticker||!date||!(value>0)){alert('Preencha ativo, data e valor.');return}db.income.push({ticker,date,value});persist();$('incomeTicker').value='';$('incomeValue').value='';render()};
 $('saveContrib').onclick=()=>{let target=$('contribTarget').value.trim(),date=$('contribDate').value,value=+$('contribValue').value;if(!target||!date||!(value>0)){alert('Preencha destino, data e valor.');return}db.contrib.push({target,date,value});persist();$('contribTarget').value='';$('contribValue').value='';render()};
 document.addEventListener('click',e=>{let r=e.target.dataset.remove;if(r){let [type,i]=r.split(':');db[type].splice(+i,1);persist();render()}});
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','assetDetail','evolution','income','contrib','projection','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));['assets','assetDetail','evolution','charts','income','contrib','projection','trades'].forEach(id=>$(id).hidden=id!==b.dataset.tab)});
 function calculateTradeLedger(){
 const balances=new Map();
 for(const a of (db.taxOpeningBalances||[])){const k=a.kind+'|'+String(a.ticker||'').toUpperCase();balances.set(k,{ticker:String(a.ticker||'').toUpperCase(),kind:a.kind,qty:Number(a.qty)||0,avg:Number(a.avg)||0})}
