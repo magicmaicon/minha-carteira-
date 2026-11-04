@@ -131,6 +131,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <h2 style="margin-top:20px">Histórico</h2><div class="tablewrap"><table><thead><tr><th>Data</th><th>Horário</th><th>Ativo</th><th>Valor</th><th></th></tr></thead><tbody id="incomeRows"></tbody></table></div><p id="incomeTotal" class="muted"></p>
 </section>
 <section id="contrib" class="panel" hidden>
+<div class="add-asset-row" style="margin-top:0"><button class="primary add-asset-button" id="openAssetFormFromLedger" type="button"><span aria-hidden="true">＋</span> Adicionar lançamento</button></div>
 <h2>Pesquisar compras de ativos</h2>
 <p class="muted" style="margin-bottom:10px">Digite o ticker ou nome do ativo para consultar suas compras registradas.</p>
 <label class="field" style="position:relative"><span>⌕ Pesquisar ativo</span><input id="purchaseSearch" type="search" placeholder="Ex.: BBSE3, MXRF11..." autocomplete="off"></label>
@@ -348,6 +349,7 @@ $('qty').addEventListener('input',updatePurchaseTotal);$('avg').addEventListener
 function openAssetForm(){ updatePurchaseTotal();$('assetFormModal').hidden=false; $('ticker').focus(); }
 function closeAssetForm(){ $('assetFormModal').hidden=true; }
 $('openAssetForm').onclick=()=>{clearAsset();openAssetForm()};
+$('openAssetFormFromLedger').onclick=()=>{clearAsset();openAssetForm()};
 $('closeAssetForm').onclick=closeAssetForm;
 $('assetFormModal').addEventListener('click',e=>{if(e.target.id==='assetFormModal')closeAssetForm()});
 function clearAsset(){editing=-1;['ticker','qty','avg','price','dividend'].forEach(x=>$(x).value='');updatePurchaseTotal();$('saveAsset').textContent='Salvar lançamento';if($('assetFormModal'))closeAssetForm()}
