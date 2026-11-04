@@ -19,7 +19,7 @@ main{max-width:980px;margin:auto;padding:14px;display:grid;gap:13px}
 nav{display:flex;gap:7px;overflow:auto;padding-bottom:2px}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 12px;font-weight:650;cursor:pointer;white-space:nowrap}button.active,.primary{background:var(--green);border-color:var(--green);color:#092016}
 h2{font-size:16px;margin:0 0 12px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.field{display:grid;gap:5px;font-size:12px;color:var(--muted)}input,select{width:100%;min-width:0;background:#0c1914;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}
 .full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}td,th{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}.positive{color:var(--green)}.negative{color:var(--red)}section[hidden]{display:none}
-footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.chartbox{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:10px;overflow:hidden}.chartbox svg{display:block;width:100%;height:auto}.history-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}.asset-group{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:11px;margin:10px 0}.asset-group h3{font-size:14px;margin:0 0 8px;color:var(--green)}.asset-group table{min-width:680px}
+footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.chartbox{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:10px;overflow:hidden}.chartbox svg{display:block;width:100%;height:auto}.history-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}.category-chart{display:grid;grid-template-columns:minmax(130px,180px) 1fr;align-items:center;gap:18px;margin:12px 0}.category-pie{width:min(100%,180px);aspect-ratio:1;border-radius:50%;background:conic-gradient(#31443b 0 100%);display:grid;place-items:center;position:relative}.category-pie:before{content:"";position:absolute;width:58%;height:58%;border-radius:50%;background:var(--panel)}.category-pie span{position:relative;z-index:1;font-size:12px;font-weight:700;text-align:center;padding:4px}.category-legend{display:grid;gap:9px;min-width:0}.category-legend-row{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:8px;font-size:12px}.category-dot{width:10px;height:10px;border-radius:3px}.category-legend-row strong{font-variant-numeric:tabular-nums}.category-legend-row small{display:block;color:var(--muted);font-size:11px}@media(max-width:420px){.category-chart{grid-template-columns:120px 1fr;gap:12px}.category-pie{width:120px}}.asset-group{background:#0c1914;border:1px solid var(--line);border-radius:12px;padding:11px;margin:10px 0}.asset-group h3{font-size:14px;margin:0 0 8px;color:var(--green)}.asset-group table{min-width:680px}
 @media(min-width:700px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.v{font-size:24px}}
 #trades{display:none!important}</style>
 </head>
@@ -48,6 +48,12 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </div>
 <div class="actions"><button class="primary" id="saveAsset">Salvar ativo</button><button id="cancelEdit">Cancelar edição</button><button id="refreshQuotes">Atualizar cotações</button></div>
 <p class="muted" id="quoteStatus" style="margin-top:10px" aria-live="polite">Ações e FIIs terão cotação consultada automaticamente ao salvar e ao abrir o aplicativo. Tesouro e outros ativos permanecem manuais.</p>
+<h2 style="margin-top:20px">Distribuição da carteira</h2>
+<div class="category-chart">
+  <div id="categoryPie" class="category-pie" role="img" aria-label="Gráfico de distribuição por categoria"><span>Sem ativos</span></div>
+  <div id="categoryLegend" class="category-legend"><p class="muted">Cadastre ativos para visualizar a distribuição.</p></div>
+</div>
+<p class="muted" style="margin-top:8px">Percentuais calculados pelo valor atual (quantidade × cotação) de cada categoria.</p>
 <h2 style="margin-top:20px">Minha carteira por grupos</h2>
 <p class="muted" style="margin-bottom:12px">Seus investimentos ficam organizados por categoria. Os dados e operações continuam vinculados aos mesmos ativos.</p>
 <div class="asset-group"><h3>Ações</h3><div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Qtd.</th><th>PM</th><th>Cotação</th><th>Valor</th><th>Resultado</th><th>Div./ano</th><th></th></tr></thead><tbody id="assetRowsStocks"></tbody></table></div></div>
@@ -251,6 +257,19 @@ const persist=()=>localStorage.setItem(key,JSON.stringify(db));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const date=localDate();$('incomeDate').value=date;$('contribDate').value=date;
+function renderCategoryChart(groupRows){
+const labels=[['Ação','Ações','#45a0e8'],['FII','FIIs','#35b58a'],['Tesouro','Tesouro','#e6a23c'],['Outro','Outros','#9a82d8']];
+const rows=labels.map(([kind,label,color])=>({kind,label,color,value:groupRows[kind].reduce((sum,item)=>sum+(Number(item.asset.qty)||0)*(Number(item.asset.price)||0),0)}));
+const total=rows.reduce((sum,row)=>sum+row.value,0);
+const pie=$('categoryPie'),legend=$('categoryLegend');
+if(!(total>0)){pie.style.background='conic-gradient(#31443b 0 100%)';pie.innerHTML='<span>Sem valores</span>';pie.setAttribute('aria-label','Sem valores cadastrados para o gráfico');legend.innerHTML='<p class="muted">Cadastre quantidade e cotação para visualizar a distribuição.</p>';return}
+let cursor=0;
+const stops=rows.filter(row=>row.value>0).map(row=>{const start=cursor;cursor+=row.value/total*100;return row.color+' '+start.toFixed(3)+'% '+cursor.toFixed(3)+'%'}).join(', ');
+pie.style.background='conic-gradient('+stops+')';
+pie.innerHTML='<span>'+fmt(total)+'</span>';
+pie.setAttribute('aria-label','Distribuição da carteira: '+rows.map(row=>row.label+' '+(100*row.value/total).toFixed(1)+' por cento').join(', '));
+legend.innerHTML=rows.filter(row=>row.value>0).map(row=>'<div class="category-legend-row"><span class="category-dot" style="background:'+row.color+'"></span><span>'+row.label+'<small>'+fmt(row.value)+'</small></span><strong>'+(100*row.value/total).toFixed(1).replace('.',',')+'%</strong></div>').join('')||'<p class="muted">Sem ativos com valor atual.</p>';
+}
 function render(){
 let total=0,cost=0,annual=0;
 const groupRows={Ação:[],FII:[],Tesouro:[],Outro:[]};
@@ -262,6 +281,7 @@ renderAssetGroup('assetRowsStocks',groupRows.Ação,'ações');
 renderAssetGroup('assetRowsFiis',groupRows.FII,'FIIs');
 renderAssetGroup('assetRowsTreasury',groupRows.Tesouro,'Tesouro Direto');
 renderAssetGroup('assetRowsOther',groupRows.Outro,'outros');
+renderCategoryChart(groupRows);
 $('emptyAssets').hidden=db.assets.length>0;$('total').textContent=fmt(total);$('invested').textContent=fmt(cost);$('result').textContent=fmt(total-cost);$('result').className='v '+(total>=cost?'positive':'negative');$('pct').textContent=(cost?(100*(total-cost)/cost).toFixed(2):'0,00')+'%';$('monthly').textContent=fmt(annual/12);$('annual').textContent=fmt(annual)+' ao ano';
 renderIncomeDashboard();project();renderGoals();renderTrades();
 $('incomeRows').innerHTML=[...db.income].map((x,i)=>({ ...x, originalIndex:i })).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(x=>`<tr><td>${esc(x.date.split('-').reverse().join('/'))}</td><td>${esc(x.ticker)}</td><td>${fmt(x.value)}</td><td><button data-remove="income:${x.originalIndex}">×</button></td></tr>`).join('');$('incomeTotal').textContent='Total recebido em todos os períodos: '+fmt(db.income.reduce((s,x)=>s+(Number(x.value)||0),0));
