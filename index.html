@@ -114,6 +114,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 </div>
 <p class="muted" id="sectorChartNote">Distribuição das ações pelo valor atual (quantidade × cotação).</p>
 <div class="category-chart"><div id="sectorPie" class="category-pie"><span>Sem ações</span></div><div id="sectorLegend" class="category-legend"></div></div>
+<div id="sectorMembers" class="panel" hidden style="margin-top:12px"><h2 id="sectorMembersTitle">Ativos do grupo</h2><div id="sectorMembersList"></div></div>
 </section>
 <section id="income" class="panel" hidden>
 <h2>Painel de dividendos</h2>
@@ -383,11 +384,26 @@ for(const a of db.assets.filter(a=>isAll||a.kind===view)){
 }
 const entries=[...sectors.entries()].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]),sum=entries.reduce((n,x)=>n+x[1],0);
 if(!sum){$('sectorPie').style.background='conic-gradient(#31443b 0 100%)';$('sectorPie').innerHTML='<span>Sem '+(isAll?'ativos':isStock?'ações':'FIIs')+'</span>';$('sectorLegend').innerHTML='<p class="muted">Cadastre quantidade e cotação para visualizar.</p>'}
-else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#55c6c6','#b7cf75','#e68db8','#a4a4a4','#d48c55'];const slices=entries.map(([n,v],i)=>{const begin=at;at+=v/sum*100;return colors[i%colors.length]+' '+begin.toFixed(2)+'% '+at.toFixed(2)+'%'}).join(',');$('sectorPie').style.background='conic-gradient('+slices+')';$('sectorPie').innerHTML='<span>'+fmt(sum)+'</span>';$('sectorLegend').innerHTML=entries.map(([n,v],i)=>'<div class="category-legend-row"><span class="category-dot" style="background:'+colors[i%colors.length]+'"></span><span>'+esc(n)+'<small>'+(100*v/sum).toFixed(1).replace('.',',')+'%</small></span><strong>'+fmt(v)+'</strong></div>').join('')}
+else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#55c6c6','#b7cf75','#e68db8','#a4a4a4','#d48c55'];const slices=entries.map(([n,v],i)=>{const begin=at;at+=v/sum*100;return colors[i%colors.length]+' '+begin.toFixed(2)+'% '+at.toFixed(2)+'%'}).join(',');$('sectorPie').style.background='conic-gradient('+slices+')';$('sectorPie').innerHTML='<span>'+fmt(sum)+'</span>';$('sectorLegend').innerHTML=entries.map(([n,v],i)=>'<button type="button" data-sector-group="'+esc(n)+'" class="category-legend-row" style="width:100%;text-align:left;white-space:normal;padding:7px 4px;background:transparent;border:0;border-radius:6px"><span class="category-dot" style="background:'+colors[i%colors.length]+'"></span><span>'+esc(n)+'<small>'+(100*v/sum).toFixed(1).replace('.',',')+'% · ver ativos</small></span><strong>'+fmt(v)+'</strong></button>').join('');$('sectorMembers').hidden=true;$('sectorMembersList').innerHTML=''}
 }
 $('chartStocksTab').addEventListener('click',()=>{window.portfolioChartView='Ação';renderPortfolioCharts()});
 $('chartFiisTab').addEventListener('click',()=>{window.portfolioChartView='FII';renderPortfolioCharts()});
 $('chartAllTab').addEventListener('click',()=>{window.portfolioChartView='Todos';renderPortfolioCharts()});
+$('sectorLegend').addEventListener('click',e=>{
+ const button=e.target.closest('button[data-sector-group]');if(!button)return;
+ const group=button.getAttribute('data-sector-group'),view=window.portfolioChartView||'Ação',all=view==='Todos';
+ const members=db.assets.filter(a=>{
+  const ticker=String(a.ticker||'').toUpperCase();
+  let category;
+  if(all)category=a.kind==='Ação'?'Ações':a.kind==='FII'?'FIIs':a.kind==='Tesouro'?'Tesouro':'Outros';
+  else category=a.kind==='Ação'?(a.sector||'Não classificado'):(knownFiiSectors[ticker]||'Não classificado');
+  return category===group&&(all||a.kind===view)&&(Number(a.qty)||0)*(Number(a.price)||0)>0;
+ });
+ $('sectorMembersTitle').textContent=group+' — ativos do grupo';
+ $('sectorMembersList').innerHTML=members.length?'<div class="tablewrap"><table><thead><tr><th>Ativo</th><th>Quantidade</th><th>Cotação</th><th>Valor atual</th></tr></thead><tbody>'+members.map(a=>'<tr><td><b>'+esc(a.ticker)+'</b></td><td>'+nfmt(a.qty)+'</td><td>'+fmt(a.price)+'</td><td>'+fmt((Number(a.qty)||0)*(Number(a.price)||0))+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted">Nenhum ativo com posição e cotação neste grupo.</p>';
+ $('sectorMembers').hidden=false;
+ $('sectorMembers').scrollIntoView({behavior:'smooth',block:'nearest'});
+});
 $('wealthPeriod').addEventListener('change',renderPortfolioCharts);
 function renderHistory(){
 const rows=[...db.history].sort((a,b)=>a.date.localeCompare(b.date));
