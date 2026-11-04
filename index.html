@@ -371,21 +371,18 @@ const isStock=view==='Ação',isAll=view==='Todos';
 $('chartStocksTab').classList.toggle('active',isStock);
 $('chartFiisTab').classList.toggle('active',view==='FII');
 $('chartAllTab').classList.toggle('active',isAll);
-$('sectorChartNote').textContent=isAll?'Distribuição de todos os ativos pelo valor atual, incluindo ações, FIIs, Tesouro e outros.':isStock?'Distribuição das ações pelo valor atual (quantidade × cotação).':'Distribuição dos FIIs pelo valor atual (cotas × cotação).';
+$('sectorChartNote').textContent=isAll?'Distribuição do patrimônio em quatro categorias: Ações, FIIs, Tesouro e Outros.':isStock?'Distribuição das ações pelo valor atual (quantidade × cotação).':'Distribuição dos FIIs pelo valor atual (cotas × cotação).';
 const sectors=new Map();
 for(const a of db.assets.filter(a=>isAll||a.kind===view)){
  const ticker=String(a.ticker||'').toUpperCase();
  let sector;
- if(a.kind==='Ação')sector='Ações • '+(a.sector||'Não classificado');
- else if(a.kind==='FII')sector='FIIs • '+(knownFiiSectors[ticker]||'Não classificado');
- else if(a.kind==='Tesouro')sector='Tesouro Direto';
- else sector='Outros';
- if(!isAll)sector=a.kind==='Ação'?(a.sector||'Não classificado'):(knownFiiSectors[ticker]||'Não classificado');
+ if(isAll)sector=a.kind==='Ação'?'Ações':a.kind==='FII'?'FIIs':a.kind==='Tesouro'?'Tesouro':'Outros';
+ else sector=a.kind==='Ação'?(a.sector||'Não classificado'):(knownFiiSectors[ticker]||'Não classificado');
  const value=(Number(a.qty)||0)*(Number(a.price)||0);
  sectors.set(sector,(sectors.get(sector)||0)+value);
 }
 const entries=[...sectors.entries()].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]),sum=entries.reduce((n,x)=>n+x[1],0);
-if(!sum){$('sectorPie').style.background='conic-gradient(#31443b 0 100%)';$('sectorPie').innerHTML='<span>Sem '+(isStock?'ações':'FIIs')+'</span>';$('sectorLegend').innerHTML='<p class="muted">Cadastre quantidade e cotação para visualizar.</p>'}
+if(!sum){$('sectorPie').style.background='conic-gradient(#31443b 0 100%)';$('sectorPie').innerHTML='<span>Sem '+(isAll?'ativos':isStock?'ações':'FIIs')+'</span>';$('sectorLegend').innerHTML='<p class="muted">Cadastre quantidade e cotação para visualizar.</p>'}
 else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#55c6c6','#b7cf75','#e68db8','#a4a4a4','#d48c55'];const slices=entries.map(([n,v],i)=>{const begin=at;at+=v/sum*100;return colors[i%colors.length]+' '+begin.toFixed(2)+'% '+at.toFixed(2)+'%'}).join(',');$('sectorPie').style.background='conic-gradient('+slices+')';$('sectorPie').innerHTML='<span>'+fmt(sum)+'</span>';$('sectorLegend').innerHTML=entries.map(([n,v],i)=>'<div class="category-legend-row"><span class="category-dot" style="background:'+colors[i%colors.length]+'"></span><span>'+esc(n)+'<small>'+(100*v/sum).toFixed(1).replace('.',',')+'%</small></span><strong>'+fmt(v)+'</strong></div>').join('')}
 }
 $('chartStocksTab').addEventListener('click',()=>{window.portfolioChartView='Ação';renderPortfolioCharts()});
