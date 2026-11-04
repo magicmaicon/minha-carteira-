@@ -110,6 +110,7 @@ footer{font-size:11px;color:var(--muted);line-height:1.5;padding:0 3px 20px}.cha
 <div class="actions" style="margin:8px 0 12px">
 <button type="button" class="active" id="chartStocksTab">Ações</button>
 <button type="button" id="chartFiisTab">FIIs</button>
+<button type="button" id="chartAllTab">Toda carteira</button>
 </div>
 <p class="muted" id="sectorChartNote">Distribuição das ações pelo valor atual (quantidade × cotação).</p>
 <div class="category-chart"><div id="sectorPie" class="category-pie"><span>Sem ações</span></div><div id="sectorLegend" class="category-legend"></div></div>
@@ -366,14 +367,20 @@ const bars=(items,valueKey,empty)=>{if(!items.length)return '<div class="history
 $('wealthChart').innerHTML=bars(points,'total','Ainda não há registros históricos de patrimônio.');
 $('returnChart').innerHTML=bars(points,'result','Ainda não há registros históricos de rentabilidade.')+'<p class="muted">Último registro: '+(points.length?points[points.length-1].pct.toFixed(2).replace('.',',')+'%':'sem dados')+'</p>';
 const view=window.portfolioChartView||'Ação';
-const isStock=view==='Ação';
+const isStock=view==='Ação',isAll=view==='Todos';
 $('chartStocksTab').classList.toggle('active',isStock);
-$('chartFiisTab').classList.toggle('active',!isStock);
-$('sectorChartNote').textContent=isStock?'Distribuição das ações pelo valor atual (quantidade × cotação).':'Distribuição dos FIIs pelo valor atual (cotas × cotação).';
+$('chartFiisTab').classList.toggle('active',view==='FII');
+$('chartAllTab').classList.toggle('active',isAll);
+$('sectorChartNote').textContent=isAll?'Distribuição de todos os ativos pelo valor atual, incluindo ações, FIIs, Tesouro e outros.':isStock?'Distribuição das ações pelo valor atual (quantidade × cotação).':'Distribuição dos FIIs pelo valor atual (cotas × cotação).';
 const sectors=new Map();
-for(const a of db.assets.filter(a=>a.kind===view)){
+for(const a of db.assets.filter(a=>isAll||a.kind===view)){
  const ticker=String(a.ticker||'').toUpperCase();
- const sector=isStock?(a.sector||'Não classificado'):(knownFiiSectors[ticker]||'Não classificado');
+ let sector;
+ if(a.kind==='Ação')sector='Ações • '+(a.sector||'Não classificado');
+ else if(a.kind==='FII')sector='FIIs • '+(knownFiiSectors[ticker]||'Não classificado');
+ else if(a.kind==='Tesouro')sector='Tesouro Direto';
+ else sector='Outros';
+ if(!isAll)sector=a.kind==='Ação'?(a.sector||'Não classificado'):(knownFiiSectors[ticker]||'Não classificado');
  const value=(Number(a.qty)||0)*(Number(a.price)||0);
  sectors.set(sector,(sectors.get(sector)||0)+value);
 }
@@ -383,6 +390,7 @@ else{let at=0;const colors=['#45c58a','#7aa7ff','#e5b85c','#c18cff','#ff8b8b','#
 }
 $('chartStocksTab').addEventListener('click',()=>{window.portfolioChartView='Ação';renderPortfolioCharts()});
 $('chartFiisTab').addEventListener('click',()=>{window.portfolioChartView='FII';renderPortfolioCharts()});
+$('chartAllTab').addEventListener('click',()=>{window.portfolioChartView='Todos';renderPortfolioCharts()});
 $('wealthPeriod').addEventListener('change',renderPortfolioCharts);
 function renderHistory(){
 const rows=[...db.history].sort((a,b)=>a.date.localeCompare(b.date));
