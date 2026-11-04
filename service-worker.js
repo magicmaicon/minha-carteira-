@@ -1,5 +1,5 @@
 
-const CACHE = 'minha-carteira-v25';
+const CACHE = 'minha-carteira-v26';
 
 const FILES = ['./','./index.html'];
 
